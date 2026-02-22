@@ -1,15 +1,19 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { nanoid } from 'nanoid'
-import type { Segment, LabelMode } from './types'
+import type { Segment, LabelMode, LegendPosition, InputMode } from './types'
+import { getPaletteColor } from './data/palettes'
 
 interface StoreState {
   segments: Segment[]
   title: string
   palette: string
   labelMode: LabelMode
+  legendPosition: LegendPosition
   backgroundColor: string
   innerRadiusPercent: number
+  gapWidthPercent: number
+  inputMode: InputMode
 
   // Actions
   addSegment: () => void
@@ -19,15 +23,18 @@ interface StoreState {
   setTitle: (title: string) => void
   setPalette: (paletteId: string) => void
   setLabelMode: (mode: LabelMode) => void
+  setLegendPosition: (position: LegendPosition) => void
   setBackgroundColor: (color: string) => void
   setInnerRadiusPercent: (percent: number) => void
+  setGapWidthPercent: (percent: number) => void
+  setInputMode: (mode: InputMode) => void
   resetToDefault: () => void
 }
 
 const DEFAULT_SEGMENTS: Segment[] = [
-  { id: nanoid(), label: 'Marketing', value: 40, color: null },
-  { id: nanoid(), label: 'Engineering', value: 35, color: null },
-  { id: nanoid(), label: 'Design', value: 25, color: null },
+  { id: nanoid(), label: 'Marketing', value: 40, color: getPaletteColor('modern', 0) },
+  { id: nanoid(), label: 'Engineering', value: 35, color: getPaletteColor('modern', 1) },
+  { id: nanoid(), label: 'Design', value: 25, color: getPaletteColor('modern', 2) },
 ]
 
 const DEFAULT_STATE = {
@@ -35,8 +42,11 @@ const DEFAULT_STATE = {
   title: '',
   palette: 'modern',
   labelMode: 'percentage' as LabelMode,
+  legendPosition: 'bottom' as LegendPosition,
   backgroundColor: '#ffffff',
   innerRadiusPercent: 0,
+  gapWidthPercent: 20,
+  inputMode: 'values' as InputMode,
 }
 
 // Debounced localStorage wrapper
@@ -57,14 +67,21 @@ export const useStore = create<StoreState>()(
       ...DEFAULT_STATE,
 
       addSegment: () => {
-        const { segments } = get()
+        const { segments, palette, inputMode } = get()
         const total = segments.reduce((sum, s) => sum + s.value, 0)
-        const remainder = Math.max(0, 100 - total)
+
+        // In percentages mode, calculate remaining to reach 100%
+        // In values mode, start at 0
+        const remainder = inputMode === 'percentages'
+          ? Math.max(0, 100 - total)
+          : 0
+
         const newSegment: Segment = {
           id: nanoid(),
           label: `Segment ${segments.length + 1}`,
           value: remainder,
-          color: null,
+          color: getPaletteColor(palette, segments.length),
+          isPlaceholder: inputMode === 'percentages', // Placeholder in % mode until user edits
         }
         set({ segments: [...segments, newSegment] })
       },
@@ -79,7 +96,14 @@ export const useStore = create<StoreState>()(
         const { segments } = get()
         set({
           segments: segments.map((s) =>
-            s.id === id ? { ...s, ...updates } : s
+            s.id === id
+              ? {
+                  ...s,
+                  ...updates,
+                  // Clear placeholder flag when user explicitly sets a value
+                  isPlaceholder: 'value' in updates ? false : s.isPlaceholder,
+                }
+              : s
           ),
         })
       },
@@ -100,15 +124,22 @@ export const useStore = create<StoreState>()(
 
       setPalette: (paletteId) => {
         const { segments } = get()
-        // Reset all custom colors when switching palette
+        // Assign new palette colors to all segments based on current position
         set({
           palette: paletteId,
-          segments: segments.map((s) => ({ ...s, color: null })),
+          segments: segments.map((s, index) => ({
+            ...s,
+            color: getPaletteColor(paletteId, index),
+          })),
         })
       },
 
       setLabelMode: (mode) => {
         set({ labelMode: mode })
+      },
+
+      setLegendPosition: (position) => {
+        set({ legendPosition: position })
       },
 
       setBackgroundColor: (color) => {
@@ -119,18 +150,32 @@ export const useStore = create<StoreState>()(
         set({ innerRadiusPercent: Math.max(0, Math.min(80, percent)) })
       },
 
+      setGapWidthPercent: (percent) => {
+        set({ gapWidthPercent: Math.max(0, Math.min(100, percent)) })
+      },
+
+      setInputMode: (mode) => {
+        const { inputMode: currentMode } = get()
+        if (mode === currentMode) return
+        // Simply switch mode - values stay as-is, no conversion
+        set({ inputMode: mode })
+      },
+
       resetToDefault: () => {
         set({
           segments: [
-            { id: nanoid(), label: 'Marketing', value: 40, color: null },
-            { id: nanoid(), label: 'Engineering', value: 35, color: null },
-            { id: nanoid(), label: 'Design', value: 25, color: null },
+            { id: nanoid(), label: 'Marketing', value: 40, color: getPaletteColor('modern', 0) },
+            { id: nanoid(), label: 'Engineering', value: 35, color: getPaletteColor('modern', 1) },
+            { id: nanoid(), label: 'Design', value: 25, color: getPaletteColor('modern', 2) },
           ],
           title: '',
           palette: 'modern',
           labelMode: 'percentage',
+          legendPosition: 'bottom',
           backgroundColor: '#ffffff',
           innerRadiusPercent: 0,
+          gapWidthPercent: 20,
+          inputMode: 'values',
         })
       },
     }),
@@ -146,9 +191,21 @@ export const useStore = create<StoreState>()(
         title: state.title,
         palette: state.palette,
         labelMode: state.labelMode,
+        legendPosition: state.legendPosition,
         backgroundColor: state.backgroundColor,
         innerRadiusPercent: state.innerRadiusPercent,
+        gapWidthPercent: state.gapWidthPercent,
+        inputMode: state.inputMode,
       }),
+      onRehydrateStorage: () => (state) => {
+        // Migrate any null colors to concrete palette values
+        if (state && state.segments.some((s) => s.color === null)) {
+          state.segments = state.segments.map((s, index) => ({
+            ...s,
+            color: s.color ?? getPaletteColor(state.palette, index),
+          }))
+        }
+      },
     }
   )
 )

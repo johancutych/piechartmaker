@@ -5,7 +5,7 @@ import { useStore } from '../store'
 import { exportChart, type ExportFormat } from '../utils/export'
 
 export function ExportButtons() {
-  const { segments, title, palette, labelMode, backgroundColor, innerRadiusPercent } = useStore()
+  const { segments, title, palette, inputMode, legendPosition, backgroundColor, innerRadiusPercent, gapWidthPercent } = useStore()
   const [exporting, setExporting] = useState<ExportFormat | null>(null)
 
   const handleExport = async (format: ExportFormat) => {
@@ -15,9 +15,11 @@ export function ExportButtons() {
         segments,
         title,
         paletteId: palette,
-        labelMode,
+        inputMode,
+        legendPosition,
         backgroundColor,
         innerRadiusPercent,
+        gapWidthPercent,
       })
     } catch (error) {
       console.error('Export failed:', error)

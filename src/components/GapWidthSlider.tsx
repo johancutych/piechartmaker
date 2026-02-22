@@ -1,9 +1,9 @@
-interface DonutSliderProps {
+interface GapWidthSliderProps {
   value: number
   onChange: (value: number) => void
 }
 
-export function DonutSlider({ value, onChange }: DonutSliderProps) {
+export function GapWidthSlider({ value, onChange }: GapWidthSliderProps) {
   return (
     <div style={{ flex: 1 }}>
       <div
@@ -21,7 +21,7 @@ export function DonutSlider({ value, onChange }: DonutSliderProps) {
             color: 'var(--text-secondary)',
           }}
         >
-          Hole Size
+          Gap Width
         </label>
         <span
           style={{
@@ -35,7 +35,7 @@ export function DonutSlider({ value, onChange }: DonutSliderProps) {
       <input
         type="range"
         min="0"
-        max="80"
+        max="100"
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
         style={{
@@ -52,8 +52,8 @@ export function DonutSlider({ value, onChange }: DonutSliderProps) {
           marginTop: '4px',
         }}
       >
-        <span>Pie</span>
-        <span>Donut</span>
+        <span>None</span>
+        <span>Wide</span>
       </div>
     </div>
   )

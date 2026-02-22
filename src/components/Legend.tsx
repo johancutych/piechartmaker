@@ -1,9 +1,10 @@
-import type { Segment } from '../types'
+import type { Segment, LegendPosition } from '../types'
 import { getPaletteColor } from '../data/palettes'
 
 interface LegendProps {
   segments: Segment[]
   paletteId: string
+  legendPosition?: LegendPosition
   hoveredSegmentId?: string | null
   onSegmentHover?: (id: string | null) => void
 }
@@ -11,6 +12,7 @@ interface LegendProps {
 export function Legend({
   segments,
   paletteId,
+  legendPosition = 'bottom',
   hoveredSegmentId,
   onSegmentHover,
 }: LegendProps) {
@@ -18,8 +20,11 @@ export function Legend({
     return segment.color ?? getPaletteColor(paletteId, index)
   }
 
-  // Determine column layout
-  const columnCount = segments.length <= 3 ? 1 : segments.length <= 8 ? 2 : 3
+  // Determine column layout based on position
+  const isRightPosition = legendPosition === 'right'
+  const columnCount = isRightPosition
+    ? 1
+    : segments.length <= 3 ? 1 : segments.length <= 8 ? 2 : 3
 
   return (
     <div
@@ -27,8 +32,8 @@ export function Legend({
       style={{
         display: 'grid',
         gridTemplateColumns: `repeat(${columnCount}, auto)`,
-        gap: '12px 24px',
-        justifyContent: 'center',
+        gap: isRightPosition ? '8px 24px' : '12px 24px',
+        justifyContent: isRightPosition ? 'flex-start' : 'center',
       }}
     >
       {segments.map((segment, index) => {
@@ -54,8 +59,8 @@ export function Legend({
             <span
               className="legend-dot"
               style={{
-                width: '10px',
-                height: '10px',
+                width: '12px',
+                height: '12px',
                 borderRadius: '50%',
                 backgroundColor: color,
                 flexShrink: 0,
@@ -64,7 +69,7 @@ export function Legend({
             <span
               className="legend-label"
               style={{
-                fontSize: '13px',
+                fontSize: '16px',
                 fontWeight: 400,
                 color: '#374151',
                 whiteSpace: 'nowrap',
@@ -84,37 +89,51 @@ export interface LegendSVGProps {
   segments: Segment[]
   paletteId: string
   startY: number
+  startX?: number
   width: number
+  legendPosition?: LegendPosition
 }
 
 export function renderLegendSVG({
   segments,
   paletteId,
   startY,
+  startX = 0,
   width,
+  legendPosition = 'bottom',
 }: LegendSVGProps): string {
   const getSegmentColor = (segment: Segment, index: number): string => {
     return segment.color ?? getPaletteColor(paletteId, index)
   }
 
-  const columnCount = segments.length <= 3 ? 1 : segments.length <= 8 ? 2 : 3
+  const isRightPosition = legendPosition === 'right'
+  const columnCount = isRightPosition
+    ? 1
+    : segments.length <= 3 ? 1 : segments.length <= 8 ? 2 : 3
   const itemsPerColumn = Math.ceil(segments.length / columnCount)
   const columnWidth = width / columnCount
-  const rowHeight = 24
-  const dotRadius = 5
-  const dotLabelGap = 8
+  const rowHeight = 28
+  const dotRadius = 6
+  const dotLabelGap = 10
 
   const items: string[] = []
 
   segments.forEach((segment, index) => {
-    const columnIndex = Math.floor(index / itemsPerColumn)
-    const rowIndex = index % itemsPerColumn
     const color = getSegmentColor(segment, index)
+    let x: number, y: number
 
-    // Calculate position
-    const columnStartX = (width - columnCount * columnWidth) / 2 + columnIndex * columnWidth + columnWidth / 4
-    const x = columnStartX
-    const y = startY + rowIndex * rowHeight
+    if (isRightPosition) {
+      // Vertical single-column layout for right position
+      x = startX
+      y = startY + index * rowHeight
+    } else {
+      // Horizontal grid layout for bottom position
+      const columnIndex = Math.floor(index / itemsPerColumn)
+      const rowIndex = index % itemsPerColumn
+      const columnStartX = (width - columnCount * columnWidth) / 2 + columnIndex * columnWidth + columnWidth / 4
+      x = columnStartX
+      y = startY + rowIndex * rowHeight
+    }
 
     items.push(`
       <circle cx="${x}" cy="${y}" r="${dotRadius}" fill="${color}" />
@@ -122,7 +141,7 @@ export function renderLegendSVG({
         x="${x + dotRadius + dotLabelGap}"
         y="${y}"
         font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
-        font-size="13"
+        font-size="16"
         font-weight="400"
         fill="#374151"
         dominant-baseline="central"

@@ -1,13 +1,15 @@
 import { useRef } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faGripVertical, faTrash } from '@fortawesome/free-solid-svg-icons'
-import type { Segment } from '../types'
+import type { Segment, InputMode } from '../types'
 
 interface SegmentRowProps {
   segment: Segment
   displayColor: string
   index: number
   canDelete: boolean
+  inputMode: InputMode
+  placeholderValue?: number
   onUpdate: (updates: Partial<Omit<Segment, 'id'>>) => void
   onDelete: () => void
   onDragStart: () => void
@@ -19,6 +21,8 @@ export function SegmentRow({
   segment,
   displayColor,
   canDelete,
+  inputMode,
+  placeholderValue,
   onUpdate,
   onDelete,
   onDragStart,
@@ -26,6 +30,12 @@ export function SegmentRow({
   onDragEnd,
 }: SegmentRowProps) {
   const colorInputRef = useRef<HTMLInputElement>(null)
+  const isPlaceholder = segment.isPlaceholder && inputMode === 'percentages'
+
+  // Determine displayed value - use placeholder if segment is a placeholder
+  const displayValue = isPlaceholder && placeholderValue !== undefined
+    ? placeholderValue
+    : segment.value
 
   const handleValueChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
@@ -54,11 +64,8 @@ export function SegmentRow({
         display: 'flex',
         alignItems: 'center',
         gap: '8px',
-        padding: '8px',
-        backgroundColor: 'white',
-        borderRadius: '6px',
-        border: '1px solid var(--border)',
-        marginBottom: '8px',
+        padding: '8px 0',
+        marginBottom: '4px',
         cursor: 'grab',
       }}
     >
@@ -78,11 +85,11 @@ export function SegmentRow({
       <button
         onClick={() => colorInputRef.current?.click()}
         style={{
-          width: '24px',
-          height: '24px',
-          borderRadius: '4px',
+          width: '28px',
+          height: '28px',
+          borderRadius: '8px',
           backgroundColor: displayColor,
-          border: '1px solid rgba(0,0,0,0.1)',
+          border: '2px solid var(--border)',
           cursor: 'pointer',
           padding: 0,
           flexShrink: 0,
@@ -116,16 +123,43 @@ export function SegmentRow({
       />
 
       {/* Value input */}
-      <input
-        type="number"
-        value={segment.value || ''}
-        onChange={handleValueChange}
-        min={0}
-        placeholder="0"
-        style={{
-          width: '70px',
-        }}
-      />
+      <div style={{ position: 'relative', width: '70px' }}>
+        <input
+          type="number"
+          value={displayValue || ''}
+          onChange={handleValueChange}
+          onFocus={(e) => {
+            // When focusing on a placeholder, select all so typing replaces
+            if (isPlaceholder) {
+              onUpdate({ value: placeholderValue ?? 0 })
+              // Select all text after a short delay to allow React to update
+              setTimeout(() => e.target.select(), 0)
+            }
+          }}
+          min={0}
+          placeholder="0"
+          className={isPlaceholder ? 'placeholder-value' : ''}
+          style={{
+            width: '100%',
+            paddingRight: inputMode === 'percentages' ? '20px' : undefined,
+          }}
+        />
+        {inputMode === 'percentages' && (
+          <span
+            style={{
+              position: 'absolute',
+              right: '8px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              color: 'var(--text-secondary)',
+              fontSize: '12px',
+              pointerEvents: 'none',
+            }}
+          >
+            %
+          </span>
+        )}
+      </div>
 
       {/* Delete button */}
       <button

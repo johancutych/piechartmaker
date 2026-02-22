@@ -3,36 +3,47 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faPlus } from '@fortawesome/free-solid-svg-icons'
 import { useStore } from '../store'
 import { getPaletteColor } from '../data/palettes'
+import { calculatePlaceholders } from '../utils/calculations'
 import { SegmentRow } from './SegmentRow'
 import { ChartTitle } from './ChartTitle'
 import { PaletteSelector } from './PaletteSelector'
 import { DonutSlider } from './DonutSlider'
+import { GapWidthSlider } from './GapWidthSlider'
 import { ConfirmDialog } from './ConfirmDialog'
+import { InputModeToggle } from './InputModeToggle'
+import { TotalDisplay } from './TotalDisplay'
 
 export function SegmentEditor() {
   const {
     segments,
     title,
     palette,
-    labelMode,
+    legendPosition,
     backgroundColor,
     innerRadiusPercent,
+    gapWidthPercent,
+    inputMode,
     addSegment,
     removeSegment,
     updateSegment,
     reorderSegments,
     setTitle,
     setPalette,
-    setLabelMode,
+    setLegendPosition,
     setBackgroundColor,
     setInnerRadiusPercent,
+    setGapWidthPercent,
+    setInputMode,
   } = useStore()
+
+  // Calculate placeholder values for segments in percentages mode
+  const placeholders = calculatePlaceholders(segments, inputMode)
+  const getPlaceholderValue = (segmentId: string) =>
+    placeholders.find(p => p.segmentId === segmentId)?.placeholderValue
 
   const [dragIndex, setDragIndex] = useState<number | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [paletteConfirm, setPaletteConfirm] = useState<string | null>(null)
-
-  const hasCustomColors = segments.some((s) => s.color !== null)
 
   const handleDragStart = (index: number) => {
     setDragIndex(index)
@@ -50,10 +61,19 @@ export function SegmentEditor() {
   }
 
   const handlePaletteSelect = (paletteId: string) => {
-    if (hasCustomColors) {
-      setPaletteConfirm(paletteId)
-    } else {
-      setPalette(paletteId)
+    if (paletteId !== palette) {
+      // Check if user has manually customized any colors
+      const hasCustomColors = segments.some((segment, index) => {
+        const paletteColor = getPaletteColor(palette, index)
+        return segment.color !== null && segment.color !== paletteColor
+      })
+
+      if (hasCustomColors) {
+        setPaletteConfirm(paletteId)
+      } else {
+        // No custom colors, apply palette directly without confirmation
+        setPalette(paletteId)
+      }
     }
   }
 
@@ -92,6 +112,12 @@ export function SegmentEditor() {
         >
           Segments
         </label>
+
+        {/* Input Mode Toggle - above segment rows */}
+        <div style={{ marginBottom: '12px' }}>
+          <InputModeToggle mode={inputMode} onChange={setInputMode} />
+        </div>
+
         {segments.map((segment, index) => (
           <SegmentRow
             key={segment.id}
@@ -99,6 +125,8 @@ export function SegmentEditor() {
             displayColor={segment.color ?? getPaletteColor(palette, index)}
             index={index}
             canDelete={segments.length > 1}
+            inputMode={inputMode}
+            placeholderValue={getPlaceholderValue(segment.id)}
             onUpdate={(updates) => updateSegment(segment.id, updates)}
             onDelete={() => handleDelete(segment.id)}
             onDragStart={() => handleDragStart(index)}
@@ -106,6 +134,9 @@ export function SegmentEditor() {
             onDragEnd={handleDragEnd}
           />
         ))}
+
+        {/* Total Display - after segment rows */}
+        <TotalDisplay segments={segments} inputMode={inputMode} />
       </div>
 
       {/* Add segment button */}
@@ -129,13 +160,19 @@ export function SegmentEditor() {
         onBackgroundColorChange={setBackgroundColor}
       />
 
-      {/* Donut hole size slider */}
-      <DonutSlider
-        value={innerRadiusPercent}
-        onChange={setInnerRadiusPercent}
-      />
+      {/* Donut hole size and Gap width sliders */}
+      <div style={{ display: 'flex', gap: '16px', marginBottom: '24px' }}>
+        <DonutSlider
+          value={innerRadiusPercent}
+          onChange={setInnerRadiusPercent}
+        />
+        <GapWidthSlider
+          value={gapWidthPercent}
+          onChange={setGapWidthPercent}
+        />
+      </div>
 
-      {/* Label mode toggle */}
+      {/* Legend position toggle */}
       <div style={{ marginBottom: '24px' }}>
         <label
           style={{
@@ -146,7 +183,7 @@ export function SegmentEditor() {
             marginBottom: '8px',
           }}
         >
-          Label Display
+          Legend Position
         </label>
         <div
           style={{
@@ -155,18 +192,18 @@ export function SegmentEditor() {
           }}
         >
           <button
-            className={labelMode === 'percentage' ? 'primary' : 'secondary'}
-            onClick={() => setLabelMode('percentage')}
+            className={legendPosition === 'bottom' ? 'primary' : 'secondary'}
+            onClick={() => setLegendPosition('bottom')}
             style={{ flex: 1 }}
           >
-            Percentage
+            Below
           </button>
           <button
-            className={labelMode === 'value' ? 'primary' : 'secondary'}
-            onClick={() => setLabelMode('value')}
+            className={legendPosition === 'right' ? 'primary' : 'secondary'}
+            onClick={() => setLegendPosition('right')}
             style={{ flex: 1 }}
           >
-            Value
+            Right
           </button>
         </div>
       </div>

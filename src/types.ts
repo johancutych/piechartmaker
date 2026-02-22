@@ -3,7 +3,10 @@ export interface Segment {
   label: string
   value: number
   color: string | null // null = use palette color for this index
+  isPlaceholder?: boolean // true if value was auto-calculated, not user-entered
 }
+
+export type InputMode = 'values' | 'percentages'
 
 export interface AppState {
   segments: Segment[]
@@ -13,6 +16,8 @@ export interface AppState {
 }
 
 export type LabelMode = 'percentage' | 'value'
+
+export type LegendPosition = 'bottom' | 'right'
 
 export interface Palette {
   id: string

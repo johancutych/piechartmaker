@@ -1,18 +1,16 @@
-import type { Segment, LabelMode } from '../types'
+import type { Segment, InputMode, LegendPosition } from '../types'
 import { getPaletteColor } from '../data/palettes'
 import { getContrastTextColor } from './color'
 import {
-  SVG_SIZE,
-  CENTER_X,
-  CENTER_Y,
-  GAP_SIZE,
   calculateSegmentAngles,
   generateSegmentPath,
   getLabelPosition,
   shouldShowLabel,
   getLabelFontSize,
   calculateInnerRadius,
+  calculateGapWidth,
 } from './geometry'
+import { calculateCanvasDimensions, LAYOUT, getLegendColumnCount } from './canvasLayout'
 
 // Font data will be loaded dynamically
 let fontDataCache: {
@@ -83,9 +81,11 @@ interface ExportOptions {
   segments: Segment[]
   paletteId: string
   title: string
-  labelMode: LabelMode
+  inputMode: InputMode
+  legendPosition: LegendPosition
   backgroundColor: string
   innerRadiusPercent: number
+  gapWidthPercent: number
 }
 
 function escapeXml(str: string): string {
@@ -102,48 +102,46 @@ function generateExportSVG(
   fontCSS: string | null,
   format: ExportFormat
 ): string {
-  const { segments, paletteId, title, labelMode, backgroundColor, innerRadiusPercent } = options
+  const { segments, paletteId, title, inputMode, legendPosition, backgroundColor, innerRadiusPercent, gapWidthPercent } = options
   const segmentAngles = calculateSegmentAngles(segments)
-  const total = segments.reduce((sum, s) => sum + s.value, 0)
   const nonZeroCount = segments.filter((s) => s.value > 0).length
   const innerRadius = calculateInnerRadius(innerRadiusPercent)
 
-  // For PNG, use transparent gaps; for JPEG/SVG use backgroundColor
-  const gapColor = format === 'png' ? 'transparent' : backgroundColor
+  // Use true geometric gaps for all formats
+  const gapWidth = nonZeroCount > 1 ? calculateGapWidth(gapWidthPercent) : 0
 
   const getSegmentColor = (segment: Segment, index: number): string => {
     return segment.color ?? getPaletteColor(paletteId, index)
   }
 
   const formatLabel = (value: number): string => {
-    if (labelMode === 'value') {
+    if (inputMode === 'values') {
+      // Values mode: show raw numbers
       return value.toString()
     }
-    const percentage = total > 0 ? (value / total) * 100 : 0
-    const rounded = Math.round(percentage * 10) / 10
+    // Percentages mode: show percentage symbol (value IS the percentage)
+    const rounded = Math.round(value * 10) / 10
     const formatted = rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1)
     return `${formatted}%`
   }
 
-  // Calculate legend dimensions
-  const legendItems = segments.length
-  const columnCount = legendItems <= 3 ? legendItems : legendItems <= 8 ? 2 : 3
-  const rows = Math.ceil(legendItems / columnCount)
-  const legendHeight = rows * 24 + 20
+  const isRightPosition = legendPosition === 'right'
 
-  // Total height: chart + gap + legend + optional title
-  const titleHeight = title ? 50 : 0
-  const chartSize = SVG_SIZE
-  const gap = 40
-  const totalHeight = titleHeight + chartSize + gap + legendHeight
-  const totalWidth = 600
+  // Use shared layout calculator for consistent dimensions
+  const dims = calculateCanvasDimensions(legendPosition, segments.length, !!title)
+  const totalWidth = dims.width
+  const totalHeight = dims.height
+  const chartOffsetX = dims.chartX
+  const chartOffsetY = dims.chartY
+  const legendStartX = dims.legendX
+  const legendStartY = dims.legendY
 
   // Background rect (only for non-PNG formats)
   const bgRect = format !== 'png'
     ? `<rect x="0" y="0" width="${totalWidth}" height="${totalHeight}" fill="${backgroundColor}" />`
     : ''
 
-  // Generate segment paths
+  // Generate segment paths with true geometric gaps
   const segmentPaths = segments
     .map((segment, index) => {
       const angles = segmentAngles[index]
@@ -155,27 +153,15 @@ function generateExportSVG(
         angles.endAngle,
         angles.sweepAngle,
         nonZeroCount === 1,
-        innerRadius
+        innerRadius,
+        gapWidth
       )
 
       if (!path) return ''
 
-      const strokeAttr = nonZeroCount > 1
-        ? `stroke="${gapColor}" stroke-width="${GAP_SIZE}" stroke-linejoin="round"`
-        : ''
-      return `<path d="${path}" fill="${color}" ${strokeAttr} />`
+      return `<path d="${path}" fill="${color}" />`
     })
     .join('')
-
-  // Center circle to cover stroke junction (solid pie only)
-  const centerCircle = nonZeroCount > 1 && innerRadius === 0
-    ? `<circle cx="${CENTER_X}" cy="${CENTER_Y}" r="${GAP_SIZE + 2}" fill="${gapColor}" />`
-    : ''
-
-  // Donut hole
-  const donutHole = innerRadius > 0
-    ? `<circle cx="${CENTER_X}" cy="${CENTER_Y}" r="${innerRadius}" fill="${gapColor}" />`
-    : ''
 
   // Generate labels
   const labels = segments
@@ -204,50 +190,73 @@ function generateExportSVG(
     })
     .join('')
 
-  // Generate legend
-  const legendStartY = titleHeight + chartSize + gap
-  const itemWidth = totalWidth / columnCount
-  const legendSvg = segments
-    .map((segment, index) => {
-      const color = getSegmentColor(segment, index)
-      const col = index % columnCount
-      const row = Math.floor(index / columnCount)
-      const x = col * itemWidth + itemWidth / 2 - 60
-      const y = legendStartY + row * 24
+  // Generate legend using shared constants
+  let legendSvg: string
+  if (isRightPosition) {
+    // Vertical single-column layout for right position
+    legendSvg = segments
+      .map((segment, index) => {
+        const color = getSegmentColor(segment, index)
+        const x = legendStartX
+        const y = legendStartY + index * LAYOUT.LEGEND_ITEM_HEIGHT
 
-      return `
-        <circle cx="${x}" cy="${y + 5}" r="5" fill="${color}" />
-        <text
-          x="${x + 13}"
-          y="${y + 5}"
-          font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
-          font-size="13"
-          font-weight="400"
-          fill="#374151"
-          dominant-baseline="central"
-        >${escapeXml(segment.label)}</text>
-      `
-    })
-    .join('')
+        return `
+          <circle cx="${x}" cy="${y + LAYOUT.LEGEND_DOT_RADIUS}" r="${LAYOUT.LEGEND_DOT_RADIUS}" fill="${color}" />
+          <text
+            x="${x + LAYOUT.LEGEND_DOT_LABEL_GAP}"
+            y="${y + LAYOUT.LEGEND_DOT_RADIUS}"
+            font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+            font-size="${LAYOUT.LEGEND_FONT_SIZE}"
+            font-weight="${LAYOUT.LEGEND_FONT_WEIGHT}"
+            fill="${LAYOUT.LEGEND_TEXT_COLOR}"
+            dominant-baseline="central"
+          >${escapeXml(segment.label)}</text>
+        `
+      })
+      .join('')
+  } else {
+    // Horizontal grid layout for bottom position
+    const columnCount = getLegendColumnCount(segments.length, legendPosition)
+    const itemWidth = totalWidth / columnCount
+    legendSvg = segments
+      .map((segment, index) => {
+        const color = getSegmentColor(segment, index)
+        const col = index % columnCount
+        const row = Math.floor(index / columnCount)
+        const x = col * itemWidth + itemWidth / 2 - 60
+        const y = legendStartY + row * LAYOUT.LEGEND_ITEM_HEIGHT
 
-  // Generate title
+        return `
+          <circle cx="${x}" cy="${y + LAYOUT.LEGEND_DOT_RADIUS}" r="${LAYOUT.LEGEND_DOT_RADIUS}" fill="${color}" />
+          <text
+            x="${x + LAYOUT.LEGEND_DOT_LABEL_GAP}"
+            y="${y + LAYOUT.LEGEND_DOT_RADIUS}"
+            font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+            font-size="${LAYOUT.LEGEND_FONT_SIZE}"
+            font-weight="${LAYOUT.LEGEND_FONT_WEIGHT}"
+            fill="${LAYOUT.LEGEND_TEXT_COLOR}"
+            dominant-baseline="central"
+          >${escapeXml(segment.label)}</text>
+        `
+      })
+      .join('')
+  }
+
+  // Generate title using shared constants
   const titleSvg = title
     ? `
       <text
-        x="${totalWidth / 2}"
-        y="30"
+        x="${dims.titleX}"
+        y="${dims.titleY}"
         text-anchor="middle"
+        dominant-baseline="central"
         font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
-        font-size="24"
-        font-weight="700"
-        fill="#111827"
+        font-size="${LAYOUT.TITLE_FONT_SIZE}"
+        font-weight="${LAYOUT.TITLE_FONT_WEIGHT}"
+        fill="${LAYOUT.TITLE_COLOR}"
       >${escapeXml(title)}</text>
     `
     : ''
-
-  // Chart offset to center it
-  const chartOffsetX = (totalWidth - chartSize) / 2
-  const chartOffsetY = titleHeight
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${totalWidth} ${totalHeight}" width="${totalWidth}" height="${totalHeight}">
@@ -256,8 +265,6 @@ function generateExportSVG(
   ${titleSvg}
   <g transform="translate(${chartOffsetX}, ${chartOffsetY})">
     ${segmentPaths}
-    ${centerCircle}
-    ${donutHole}
     ${labels}
   </g>
   ${legendSvg}
@@ -320,13 +327,10 @@ export async function exportChart(
   // Generate SVG with format-specific settings
   const svgString = generateExportSVG(options, fontCSS, format)
 
-  // Calculate dimensions
-  const titleHeight = options.title ? 50 : 0
-  const legendItems = options.segments.length
-  const rows = Math.ceil(legendItems / (legendItems <= 3 ? legendItems : legendItems <= 8 ? 2 : 3))
-  const legendHeight = rows * 24 + 20
-  const totalHeight = titleHeight + SVG_SIZE + 40 + legendHeight
-  const totalWidth = 600
+  // Use shared dimension calculator
+  const dims = calculateCanvasDimensions(options.legendPosition, options.segments.length, !!options.title)
+  const totalWidth = dims.width
+  const totalHeight = dims.height
 
   if (format === 'svg') {
     const blob = new Blob([svgString], { type: 'image/svg+xml' })

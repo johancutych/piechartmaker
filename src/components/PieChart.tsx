@@ -1,25 +1,24 @@
-import type { Segment, LabelMode } from '../types'
+import type { Segment, InputMode } from '../types'
 import { getPaletteColor } from '../data/palettes'
 import { getContrastTextColor } from '../utils/color'
 import {
   SVG_SIZE,
-  CENTER_X,
-  CENTER_Y,
-  GAP_SIZE,
   calculateSegmentAngles,
   generateSegmentPath,
   getLabelPosition,
   shouldShowLabel,
   getLabelFontSize,
   calculateInnerRadius,
+  calculateGapWidth,
 } from '../utils/geometry'
 
 interface PieChartProps {
   segments: Segment[]
   paletteId: string
-  labelMode: LabelMode
+  inputMode: InputMode
   backgroundColor: string
   innerRadiusPercent: number
+  gapWidthPercent: number
   hoveredSegmentId?: string | null
   onSegmentHover?: (id: string | null) => void
 }
@@ -27,29 +26,31 @@ interface PieChartProps {
 export function PieChart({
   segments,
   paletteId,
-  labelMode,
-  backgroundColor,
+  inputMode,
+  backgroundColor: _backgroundColor,
   innerRadiusPercent,
+  gapWidthPercent,
   hoveredSegmentId,
   onSegmentHover,
 }: PieChartProps) {
+  // Note: _backgroundColor is kept for API compatibility but no longer used
+  // since gaps are now true geometric gaps (transparent)
   const segmentAngles = calculateSegmentAngles(segments)
-  const total = segments.reduce((sum, s) => sum + s.value, 0)
   const nonZeroCount = segments.filter((s) => s.value > 0).length
   const innerRadius = calculateInnerRadius(innerRadiusPercent)
+  const gapWidth = calculateGapWidth(gapWidthPercent)
 
   const getSegmentColor = (segment: Segment, index: number): string => {
     return segment.color ?? getPaletteColor(paletteId, index)
   }
 
   const formatLabel = (value: number): string => {
-    if (labelMode === 'value') {
+    if (inputMode === 'values') {
+      // Values mode: show raw numbers
       return value.toString()
     }
-    // Percentage mode
-    const percentage = total > 0 ? (value / total) * 100 : 0
-    // Round to 1 decimal, drop .0
-    const rounded = Math.round(percentage * 10) / 10
+    // Percentages mode: show percentage symbol (value IS the percentage)
+    const rounded = Math.round(value * 10) / 10
     const formatted = rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1)
     return `${formatted}%`
   }
@@ -57,9 +58,8 @@ export function PieChart({
   return (
     <svg
       viewBox={`0 0 ${SVG_SIZE} ${SVG_SIZE}`}
-      width="100%"
-      height="100%"
-      style={{ maxWidth: '400px', maxHeight: '400px' }}
+      width={SVG_SIZE}
+      height={SVG_SIZE}
     >
       {/* Render segments */}
       {segments.map((segment, index) => {
@@ -67,12 +67,15 @@ export function PieChart({
         if (!angles || angles.sweepAngle === 0) return null
 
         const color = getSegmentColor(segment, index)
+        // Use true geometric gaps when multiple segments
+        const effectiveGapWidth = nonZeroCount > 1 ? gapWidth : 0
         const path = generateSegmentPath(
           angles.startAngle,
           angles.endAngle,
           angles.sweepAngle,
           nonZeroCount === 1,
-          innerRadius
+          innerRadius,
+          effectiveGapWidth
         )
 
         if (!path) return null
@@ -85,9 +88,6 @@ export function PieChart({
             key={segment.id}
             d={path}
             fill={color}
-            stroke={backgroundColor}
-            strokeWidth={nonZeroCount > 1 ? GAP_SIZE : 0}
-            strokeLinejoin="round"
             style={{
               opacity: isDimmed ? 0.6 : 1,
               transition: 'opacity 0.2s ease',
@@ -98,26 +98,6 @@ export function PieChart({
           />
         )
       })}
-
-      {/* Center circle to cover stroke junction (solid pie only) */}
-      {nonZeroCount > 1 && innerRadius === 0 && (
-        <circle
-          cx={CENTER_X}
-          cy={CENTER_Y}
-          r={GAP_SIZE + 2}
-          fill={backgroundColor}
-        />
-      )}
-
-      {/* Donut hole */}
-      {innerRadius > 0 && (
-        <circle
-          cx={CENTER_X}
-          cy={CENTER_Y}
-          r={innerRadius}
-          fill={backgroundColor}
-        />
-      )}
 
       {/* Render labels */}
       {segments.map((segment, index) => {
@@ -140,7 +120,7 @@ export function PieChart({
             fill={textColor}
             fontSize={fontSize}
             fontFamily="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
-            fontWeight={600}
+            fontWeight={700}
             style={{ pointerEvents: 'none' }}
           >
             {formatLabel(segment.value)}

@@ -51,11 +51,11 @@ export function PaletteSelector({
             onClick={() => setIsOpen(!isOpen)}
             style={{
               width: '100%',
-              padding: '8px 12px',
+              padding: '10px 14px',
               fontSize: '14px',
               fontFamily: 'var(--font-family)',
-              border: '1px solid var(--border)',
-              borderRadius: '6px',
+              border: '2px solid var(--border)',
+              borderRadius: '10px',
               backgroundColor: 'var(--bg)',
               color: 'var(--text-primary)',
               cursor: 'pointer',
@@ -65,6 +65,9 @@ export function PaletteSelector({
               justifyContent: 'space-between',
               gap: '8px',
               textAlign: 'left',
+              fontWeight: 400,
+              textTransform: 'none',
+              letterSpacing: 'normal',
             }}
           >
             <span style={{ flex: 1 }}>{selectedPalette?.name}</span>
@@ -94,8 +97,8 @@ export function PaletteSelector({
                 right: 0,
                 marginTop: '4px',
                 backgroundColor: 'var(--surface)',
-                border: '1px solid var(--border)',
-                borderRadius: '6px',
+                border: '2px solid var(--border)',
+                borderRadius: '10px',
                 boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
                 zIndex: 100,
                 maxHeight: '240px',
@@ -180,11 +183,11 @@ export function PaletteSelector({
           <button
             onClick={() => bgColorInputRef.current?.click()}
             style={{
-              width: '36px',
-              height: '36px',
-              borderRadius: '6px',
+              width: '40px',
+              height: '40px',
+              borderRadius: '10px',
               backgroundColor: backgroundColor,
-              border: '1px solid var(--border)',
+              border: '2px solid var(--border)',
               cursor: 'pointer',
               padding: 0,
             }}

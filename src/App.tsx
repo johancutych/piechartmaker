@@ -2,14 +2,13 @@ import { useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faRotateLeft } from '@fortawesome/free-solid-svg-icons'
 import { SegmentEditor } from './components/SegmentEditor'
-import { PieChart } from './components/PieChart'
-import { Legend } from './components/Legend'
+import { CanvasPreview } from './components/CanvasPreview'
 import { ExportButtons } from './components/ExportButtons'
 import { ConfirmDialog } from './components/ConfirmDialog'
 import { useStore } from './store'
 
 function App() {
-  const { segments, title, palette, labelMode, backgroundColor, innerRadiusPercent, resetToDefault } = useStore()
+  const { segments, title, palette, inputMode, legendPosition, backgroundColor, innerRadiusPercent, gapWidthPercent, resetToDefault } = useStore()
   const [hoveredSegmentId, setHoveredSegmentId] = useState<string | null>(null)
   const [resetConfirm, setResetConfirm] = useState(false)
 
@@ -37,25 +36,19 @@ function App() {
           <ExportButtons />
         </div>
 
-        <div className="chart-wrapper" style={{ backgroundColor }}>
-          <div className="chart-container">
-            {title && <h1 className="chart-title">{title}</h1>}
-            <PieChart
-              segments={segments}
-              paletteId={palette}
-              labelMode={labelMode}
-              backgroundColor={backgroundColor}
-              innerRadiusPercent={innerRadiusPercent}
-              hoveredSegmentId={hoveredSegmentId}
-              onSegmentHover={setHoveredSegmentId}
-            />
-            <Legend
-              segments={segments}
-              paletteId={palette}
-              hoveredSegmentId={hoveredSegmentId}
-              onSegmentHover={setHoveredSegmentId}
-            />
-          </div>
+        <div className="chart-wrapper">
+          <CanvasPreview
+            segments={segments}
+            paletteId={palette}
+            title={title}
+            inputMode={inputMode}
+            legendPosition={legendPosition}
+            backgroundColor={backgroundColor}
+            innerRadiusPercent={innerRadiusPercent}
+            gapWidthPercent={gapWidthPercent}
+            hoveredSegmentId={hoveredSegmentId}
+            onSegmentHover={setHoveredSegmentId}
+          />
         </div>
       </main>
 
