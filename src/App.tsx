@@ -8,7 +8,7 @@ import { ConfirmDialog } from './components/ConfirmDialog'
 import { useStore } from './store'
 
 function App() {
-  const { segments, title, palette, inputMode, legendPosition, backgroundColor, innerRadiusPercent, gapWidthPercent, resetToDefault } = useStore()
+  const { segments, title, palette, style, inputMode, legendPosition, backgroundColor, innerRadiusPercent, gapWidthPercent, resetToDefault } = useStore()
   const [hoveredSegmentId, setHoveredSegmentId] = useState<string | null>(null)
   const [resetConfirm, setResetConfirm] = useState(false)
 
@@ -40,6 +40,7 @@ function App() {
           <CanvasPreview
             segments={segments}
             paletteId={palette}
+            styleId={style}
             title={title}
             inputMode={inputMode}
             legendPosition={legendPosition}

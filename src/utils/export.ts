@@ -1,6 +1,7 @@
 import type { Segment, InputMode, LegendPosition } from '../types'
 import { getPaletteColor } from '../data/palettes'
-import { getContrastTextColor } from './color'
+import { getStyle } from '../data/styles'
+import { getContrastTextColor, lightenColor, darkenColor, hexToRgba } from './color'
 import {
   calculateSegmentAngles,
   generateSegmentPath,
@@ -9,6 +10,8 @@ import {
   getLabelFontSize,
   calculateInnerRadius,
   calculateGapWidth,
+  shouldLabelBeExternal,
+  getExternalLabelPosition,
 } from './geometry'
 import { calculateCanvasDimensions, LAYOUT, getLegendColumnCount } from './canvasLayout'
 
@@ -80,6 +83,7 @@ function generateEmbeddedFontCSS(fontData: NonNullable<typeof fontDataCache>): s
 interface ExportOptions {
   segments: Segment[]
   paletteId: string
+  styleId: string
   title: string
   inputMode: InputMode
   legendPosition: LegendPosition
@@ -102,13 +106,15 @@ function generateExportSVG(
   fontCSS: string | null,
   format: ExportFormat
 ): string {
-  const { segments, paletteId, title, inputMode, legendPosition, backgroundColor, innerRadiusPercent, gapWidthPercent } = options
+  const { segments, paletteId, styleId, title, inputMode, legendPosition, backgroundColor, innerRadiusPercent, gapWidthPercent } = options
+  const style = getStyle(styleId)
   const segmentAngles = calculateSegmentAngles(segments)
   const nonZeroCount = segments.filter((s) => s.value > 0).length
   const innerRadius = calculateInnerRadius(innerRadiusPercent)
 
-  // Use true geometric gaps for all formats
-  const gapWidth = nonZeroCount > 1 ? calculateGapWidth(gapWidthPercent) : 0
+  // Use true geometric gaps for all formats, scaled by style
+  const baseGapWidth = calculateGapWidth(gapWidthPercent)
+  const gapWidth = nonZeroCount > 1 ? baseGapWidth * style.gapMultiplier : 0
 
   const getSegmentColor = (segment: Segment, index: number): string => {
     return segment.color ?? getPaletteColor(paletteId, index)
@@ -125,7 +131,11 @@ function generateExportSVG(
     return `${formatted}%`
   }
 
-  const isRightPosition = legendPosition === 'right'
+  const isSidePosition = legendPosition === 'right' || legendPosition === 'left'
+
+  // Calculate text color based on background contrast
+  const textColor = backgroundColor === 'transparent' ? LAYOUT.TITLE_COLOR : getContrastTextColor(backgroundColor)
+  const legendTextColor = backgroundColor === 'transparent' ? LAYOUT.LEGEND_TEXT_COLOR : getContrastTextColor(backgroundColor)
 
   // Use shared layout calculator for consistent dimensions
   const dims = calculateCanvasDimensions(legendPosition, segments.length, !!title)
@@ -141,7 +151,53 @@ function generateExportSVG(
     ? `<rect x="0" y="0" width="${totalWidth}" height="${totalHeight}" fill="${backgroundColor}" />`
     : ''
 
-  // Generate segment paths with true geometric gaps
+  // Generate gradient and filter definitions
+  const needsGradients = style.segment.fill === 'gradient'
+  const needsNeonFilter = style.segment.filter === 'neon-glow'
+
+  let gradientDefs = ''
+  if (needsGradients) {
+    gradientDefs = segments.map((segment, index) => {
+      const color = getSegmentColor(segment, index)
+      const angles = segmentAngles[index]
+      if (!angles || angles.sweepAngle === 0) return ''
+
+      // Calculate gradient angle based on segment position
+      const gradAngle = angles.midAngle + 90
+      const rad = (gradAngle * Math.PI) / 180
+      const x1 = 50 - Math.cos(rad) * 50
+      const y1 = 50 - Math.sin(rad) * 50
+      const x2 = 50 + Math.cos(rad) * 50
+      const y2 = 50 + Math.sin(rad) * 50
+
+      return `
+        <linearGradient id="grad-${segment.id}" x1="${x1}%" y1="${y1}%" x2="${x2}%" y2="${y2}%">
+          <stop offset="0%" stop-color="${lightenColor(color, 0.35)}" />
+          <stop offset="100%" stop-color="${darkenColor(color, 0.1)}" />
+        </linearGradient>
+      `
+    }).join('')
+  }
+
+  const neonFilterDef = needsNeonFilter
+    ? `<filter id="neon-glow" x="-100%" y="-100%" width="300%" height="300%">
+        <feGaussianBlur stdDeviation="12" result="blur1" />
+        <feComponentTransfer in="blur1" result="blur1-faded">
+          <feFuncA type="linear" slope="0.5" />
+        </feComponentTransfer>
+        <feGaussianBlur stdDeviation="6" in="SourceGraphic" result="blur2" />
+        <feComponentTransfer in="blur2" result="blur2-faded">
+          <feFuncA type="linear" slope="0.4" />
+        </feComponentTransfer>
+        <feMerge>
+          <feMergeNode in="blur1-faded" />
+          <feMergeNode in="blur2-faded" />
+          <feMergeNode in="SourceGraphic" />
+        </feMerge>
+      </filter>`
+    : ''
+
+  // Generate segment paths with true geometric gaps and style
   const segmentPaths = segments
     .map((segment, index) => {
       const angles = segmentAngles[index]
@@ -154,12 +210,48 @@ function generateExportSVG(
         angles.sweepAngle,
         nonZeroCount === 1,
         innerRadius,
-        gapWidth
+        gapWidth,
+        style.segment.cornerRadius
       )
 
       if (!path) return ''
 
-      return `<path d="${path}" fill="${color}" />`
+      // Determine fill
+      let fill: string
+      if (style.segment.fill === 'transparent') {
+        fill = 'none'
+      } else if (style.segment.fill === 'gradient') {
+        fill = `url(#grad-${segment.id})`
+      } else {
+        fill = color
+      }
+
+      // Determine stroke
+      let strokeAttr = ''
+      if (style.segment.stroke) {
+        const strokeColor = style.segment.stroke.color === 'segment'
+          ? darkenColor(color, style.segment.stroke.darkening)
+          : style.segment.stroke.color
+        strokeAttr = `stroke="${strokeColor}" stroke-width="${style.segment.stroke.width}"`
+      }
+
+      // Determine filter
+      let filterAttr = ''
+      if (style.segment.filter) {
+        filterAttr = `filter="url(#${style.segment.filter})"`
+      }
+
+      // Determine style for shadow
+      let styleAttr = ''
+      if (style.segment.shadow) {
+        const s = style.segment.shadow
+        const shadowColor = s.color === 'segment'
+          ? darkenColor(color, s.darkening)
+          : s.color
+        styleAttr = `style="filter: drop-shadow(${s.offsetX}px ${s.offsetY}px ${s.blur}px ${shadowColor})"`
+      }
+
+      return `<path d="${path}" fill="${fill}" ${strokeAttr} ${filterAttr} ${styleAttr} />`
     })
     .join('')
 
@@ -171,15 +263,35 @@ function generateExportSVG(
       if (!shouldShowLabel(angles.sweepAngle)) return ''
 
       const color = getSegmentColor(segment, index)
-      const textColor = getContrastTextColor(color)
-      const labelPos = getLabelPosition(angles.midAngle, innerRadius)
+      const isExternal = shouldLabelBeExternal(angles.sweepAngle)
+
+      let labelPos: { x: number; y: number }
+      let textAnchor: 'start' | 'middle' | 'end' = 'middle'
+      let textColor: string
+
+      if (isExternal) {
+        // External labels: position outside the pie
+        const externalPos = getExternalLabelPosition(angles.midAngle)
+        labelPos = { x: externalPos.x, y: externalPos.y }
+        textAnchor = externalPos.textAnchor
+        // External labels use segment color (not on top of slice)
+        textColor = color
+      } else {
+        // Internal labels: position inside the slice
+        labelPos = getLabelPosition(angles.midAngle, innerRadius)
+        // For outline style, use segment color; otherwise use contrast color
+        textColor = style.segment.fill === 'transparent'
+          ? color
+          : getContrastTextColor(color)
+      }
+
       const fontSize = getLabelFontSize(angles.sweepAngle)
 
       return `
         <text
           x="${labelPos.x}"
           y="${labelPos.y}"
-          text-anchor="middle"
+          text-anchor="${textAnchor}"
           dominant-baseline="central"
           fill="${textColor}"
           font-size="${fontSize}"
@@ -190,10 +302,38 @@ function generateExportSVG(
     })
     .join('')
 
-  // Generate legend using shared constants
+  // Generate legend using shared constants with style-aware indicators
+  const legendStyle = style.legend
+  const indicatorSize = legendStyle.indicatorSize
+  const indicatorRadius = indicatorSize / 2
+
+  // Helper to generate indicator SVG based on style
+  const generateIndicator = (x: number, y: number, color: string): string => {
+    const cx = x
+    const cy = y + indicatorRadius
+
+    switch (legendStyle.indicatorShape) {
+      case 'rectangle':
+        return `<rect x="${cx - indicatorRadius}" y="${cy - indicatorRadius}" width="${indicatorSize}" height="${indicatorSize}" rx="2" fill="${color}" />`
+      case 'ring':
+        return `<circle cx="${cx}" cy="${cy}" r="${indicatorRadius - 1.5}" fill="none" stroke="${color}" stroke-width="3" />`
+      case 'circle':
+      default:
+        if (legendStyle.stroke) {
+          const strokeColor = darkenColor(color, 0.2)
+          return `<circle cx="${cx}" cy="${cy}" r="${indicatorRadius - 1}" fill="${color}" stroke="${strokeColor}" stroke-width="2" />`
+        } else if (legendStyle.glow) {
+          const glow1 = hexToRgba(color, 0.5)
+          const glow2 = hexToRgba(color, 0.3)
+          return `<circle cx="${cx}" cy="${cy}" r="${indicatorRadius}" fill="${color}" style="filter: drop-shadow(0 0 12px ${glow1}) drop-shadow(0 0 24px ${glow2});" />`
+        }
+        return `<circle cx="${cx}" cy="${cy}" r="${indicatorRadius}" fill="${color}" />`
+    }
+  }
+
   let legendSvg: string
-  if (isRightPosition) {
-    // Vertical single-column layout for right position
+  if (isSidePosition) {
+    // Vertical single-column layout for left/right position
     legendSvg = segments
       .map((segment, index) => {
         const color = getSegmentColor(segment, index)
@@ -201,14 +341,14 @@ function generateExportSVG(
         const y = legendStartY + index * LAYOUT.LEGEND_ITEM_HEIGHT
 
         return `
-          <circle cx="${x}" cy="${y + LAYOUT.LEGEND_DOT_RADIUS}" r="${LAYOUT.LEGEND_DOT_RADIUS}" fill="${color}" />
+          ${generateIndicator(x, y, color)}
           <text
-            x="${x + LAYOUT.LEGEND_DOT_LABEL_GAP}"
-            y="${y + LAYOUT.LEGEND_DOT_RADIUS}"
+            x="${x + indicatorRadius + LAYOUT.LEGEND_DOT_LABEL_GAP - LAYOUT.LEGEND_DOT_RADIUS}"
+            y="${y + indicatorRadius}"
             font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
             font-size="${LAYOUT.LEGEND_FONT_SIZE}"
             font-weight="${LAYOUT.LEGEND_FONT_WEIGHT}"
-            fill="${LAYOUT.LEGEND_TEXT_COLOR}"
+            fill="${legendTextColor}"
             dominant-baseline="central"
           >${escapeXml(segment.label)}</text>
         `
@@ -227,14 +367,14 @@ function generateExportSVG(
         const y = legendStartY + row * LAYOUT.LEGEND_ITEM_HEIGHT
 
         return `
-          <circle cx="${x}" cy="${y + LAYOUT.LEGEND_DOT_RADIUS}" r="${LAYOUT.LEGEND_DOT_RADIUS}" fill="${color}" />
+          ${generateIndicator(x, y, color)}
           <text
-            x="${x + LAYOUT.LEGEND_DOT_LABEL_GAP}"
-            y="${y + LAYOUT.LEGEND_DOT_RADIUS}"
+            x="${x + indicatorRadius + LAYOUT.LEGEND_DOT_LABEL_GAP - LAYOUT.LEGEND_DOT_RADIUS}"
+            y="${y + indicatorRadius}"
             font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
             font-size="${LAYOUT.LEGEND_FONT_SIZE}"
             font-weight="${LAYOUT.LEGEND_FONT_WEIGHT}"
-            fill="${LAYOUT.LEGEND_TEXT_COLOR}"
+            fill="${legendTextColor}"
             dominant-baseline="central"
           >${escapeXml(segment.label)}</text>
         `
@@ -242,7 +382,8 @@ function generateExportSVG(
       .join('')
   }
 
-  // Generate title using shared constants
+  // Generate title using shared constants with style
+  const titleStyleAttr = style.title.shadow ? `style="text-shadow: ${style.title.shadow}"` : ''
   const titleSvg = title
     ? `
       <text
@@ -252,15 +393,23 @@ function generateExportSVG(
         dominant-baseline="central"
         font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
         font-size="${LAYOUT.TITLE_FONT_SIZE}"
-        font-weight="${LAYOUT.TITLE_FONT_WEIGHT}"
-        fill="${LAYOUT.TITLE_COLOR}"
+        font-weight="${style.title.fontWeight}"
+        fill="${textColor}"
+        ${titleStyleAttr}
       >${escapeXml(title)}</text>
     `
     : ''
 
+  // Build defs section with fonts, gradients, and filters
+  const defsContent = [
+    fontCSS ? `<style>${fontCSS}</style>` : '',
+    gradientDefs,
+    neonFilterDef,
+  ].filter(Boolean).join('\n')
+
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${totalWidth} ${totalHeight}" width="${totalWidth}" height="${totalHeight}">
-  ${fontCSS ? `<defs><style>${fontCSS}</style></defs>` : ''}
+  ${defsContent ? `<defs>${defsContent}</defs>` : ''}
   ${bgRect}
   ${titleSvg}
   <g transform="translate(${chartOffsetX}, ${chartOffsetY})">

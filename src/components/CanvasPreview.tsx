@@ -1,12 +1,15 @@
 import { useMemo, useRef, useEffect, useState } from 'react'
 import type { Segment, InputMode, LegendPosition } from '../types'
 import { calculateCanvasDimensions, LAYOUT } from '../utils/canvasLayout'
+import { getStyle } from '../data/styles'
+import { getContrastTextColor } from '../utils/color'
 import { PieChart } from './PieChart'
 import { LegendCanvas } from './LegendCanvas'
 
 interface CanvasPreviewProps {
   segments: Segment[]
   paletteId: string
+  styleId: string
   title: string
   inputMode: InputMode
   legendPosition: LegendPosition
@@ -20,6 +23,7 @@ interface CanvasPreviewProps {
 export function CanvasPreview({
   segments,
   paletteId,
+  styleId,
   title,
   inputMode,
   legendPosition,
@@ -31,6 +35,8 @@ export function CanvasPreview({
 }: CanvasPreviewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState(1)
+  const style = getStyle(styleId)
+  const textColor = backgroundColor === 'transparent' ? LAYOUT.TITLE_COLOR : getContrastTextColor(backgroundColor)
 
   // Calculate exact canvas dimensions matching export
   const dimensions = useMemo(
@@ -113,10 +119,11 @@ export function CanvasPreview({
                 alignItems: 'center',
                 justifyContent: 'center',
                 fontSize: LAYOUT.TITLE_FONT_SIZE,
-                fontWeight: LAYOUT.TITLE_FONT_WEIGHT,
-                color: LAYOUT.TITLE_COLOR,
+                fontWeight: style.title.fontWeight,
+                color: textColor,
                 whiteSpace: 'nowrap',
                 fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+                textShadow: style.title.shadow ?? 'none',
               }}
             >
               {title}
@@ -136,6 +143,7 @@ export function CanvasPreview({
             <PieChart
               segments={segments}
               paletteId={paletteId}
+              styleId={styleId}
               inputMode={inputMode}
               backgroundColor={backgroundColor}
               innerRadiusPercent={innerRadiusPercent}
@@ -150,18 +158,20 @@ export function CanvasPreview({
             style={{
               position: 'absolute',
               left: dimensions.legendX,
-              top: legendPosition === 'right' ? dimensions.chartY : dimensions.legendY,
+              top: legendPosition === 'bottom' ? dimensions.legendY : dimensions.chartY,
               width: legendPosition === 'bottom' ? dimensions.width : LAYOUT.LEGEND_RIGHT_WIDTH,
-              height: legendPosition === 'right' ? LAYOUT.CHART_SIZE : undefined,
-              display: legendPosition === 'right' ? 'flex' : undefined,
-              alignItems: legendPosition === 'right' ? 'center' : undefined,
+              height: legendPosition === 'bottom' ? undefined : LAYOUT.CHART_SIZE,
+              display: legendPosition === 'bottom' ? undefined : 'flex',
+              alignItems: legendPosition === 'bottom' ? undefined : 'center',
             }}
           >
             <LegendCanvas
               segments={segments}
               paletteId={paletteId}
+              styleId={styleId}
               legendPosition={legendPosition}
               canvasWidth={dimensions.width}
+              backgroundColor={backgroundColor}
               hoveredSegmentId={hoveredSegmentId}
               onSegmentHover={onSegmentHover}
             />

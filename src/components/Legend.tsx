@@ -1,9 +1,12 @@
 import type { Segment, LegendPosition } from '../types'
 import { getPaletteColor } from '../data/palettes'
+import { getStyle } from '../data/styles'
+import { darkenColor, hexToRgba } from '../utils/color'
 
 interface LegendProps {
   segments: Segment[]
   paletteId: string
+  styleId: string
   legendPosition?: LegendPosition
   hoveredSegmentId?: string | null
   onSegmentHover?: (id: string | null) => void
@@ -12,10 +15,14 @@ interface LegendProps {
 export function Legend({
   segments,
   paletteId,
+  styleId,
   legendPosition = 'bottom',
   hoveredSegmentId,
   onSegmentHover,
 }: LegendProps) {
+  const style = getStyle(styleId)
+  const legendStyle = style.legend
+
   const getSegmentColor = (segment: Segment, index: number): string => {
     return segment.color ?? getPaletteColor(paletteId, index)
   }
@@ -25,6 +32,43 @@ export function Legend({
   const columnCount = isRightPosition
     ? 1
     : segments.length <= 3 ? 1 : segments.length <= 8 ? 2 : 3
+
+  // Build indicator style based on chart style
+  const getIndicatorStyle = (color: string): React.CSSProperties => {
+    const size = legendStyle.indicatorSize
+    const baseStyle: React.CSSProperties = {
+      width: `${size}px`,
+      height: `${size}px`,
+      flexShrink: 0,
+    }
+
+    switch (legendStyle.indicatorShape) {
+      case 'rectangle':
+        return {
+          ...baseStyle,
+          borderRadius: '2px',
+          backgroundColor: color,
+        }
+      case 'ring':
+        return {
+          ...baseStyle,
+          borderRadius: '50%',
+          backgroundColor: 'transparent',
+          border: `3px solid ${color}`,
+          boxSizing: 'border-box',
+        }
+      case 'circle':
+      default:
+        return {
+          ...baseStyle,
+          borderRadius: '50%',
+          backgroundColor: color,
+          border: legendStyle.stroke ? `2px solid ${darkenColor(color, 0.2)}` : 'none',
+          boxShadow: legendStyle.glow ? `0 0 16px ${hexToRgba(color, 0.5)}, 0 0 30px ${hexToRgba(color, 0.3)}` : 'none',
+          boxSizing: 'border-box',
+        }
+    }
+  }
 
   return (
     <div
@@ -58,13 +102,7 @@ export function Legend({
           >
             <span
               className="legend-dot"
-              style={{
-                width: '16px',
-                height: '16px',
-                borderRadius: '50%',
-                backgroundColor: color,
-                flexShrink: 0,
-              }}
+              style={getIndicatorStyle(color)}
             />
             <span
               className="legend-label"
@@ -88,6 +126,7 @@ export function Legend({
 export interface LegendSVGProps {
   segments: Segment[]
   paletteId: string
+  styleId: string
   startY: number
   startX?: number
   width: number
@@ -97,11 +136,15 @@ export interface LegendSVGProps {
 export function renderLegendSVG({
   segments,
   paletteId,
+  styleId,
   startY,
   startX = 0,
   width,
   legendPosition = 'bottom',
 }: LegendSVGProps): string {
+  const style = getStyle(styleId)
+  const legendStyleConfig = style.legend
+
   const getSegmentColor = (segment: Segment, index: number): string => {
     return segment.color ?? getPaletteColor(paletteId, index)
   }
@@ -111,9 +154,9 @@ export function renderLegendSVG({
     ? 1
     : segments.length <= 3 ? 1 : segments.length <= 8 ? 2 : 3
   const itemsPerColumn = Math.ceil(segments.length / columnCount)
-  const columnWidth = width / columnCount
   const rowHeight = 36
-  const dotRadius = 8
+  const indicatorSize = legendStyleConfig.indicatorSize
+  const dotRadius = indicatorSize / 2
   const dotLabelGap = 12
 
   const items: string[] = []
@@ -138,8 +181,33 @@ export function renderLegendSVG({
       y = startY + rowIndex * rowHeight
     }
 
+    // Render different indicator shapes based on style
+    let indicatorSVG: string
+    switch (legendStyleConfig.indicatorShape) {
+      case 'rectangle':
+        indicatorSVG = `<rect x="${x - dotRadius}" y="${y - dotRadius}" width="${indicatorSize}" height="${indicatorSize}" rx="2" fill="${color}" />`
+        break
+      case 'ring':
+        indicatorSVG = `<circle cx="${x}" cy="${y}" r="${dotRadius - 1.5}" fill="none" stroke="${color}" stroke-width="3" />`
+        break
+      case 'circle':
+      default:
+        if (legendStyleConfig.stroke) {
+          const strokeColor = darkenColor(color, 0.2)
+          indicatorSVG = `<circle cx="${x}" cy="${y}" r="${dotRadius - 1}" fill="${color}" stroke="${strokeColor}" stroke-width="2" />`
+        } else if (legendStyleConfig.glow) {
+          // Add a glow effect using a filter with lower opacity and larger blur
+          const glow1 = hexToRgba(color, 0.5)
+          const glow2 = hexToRgba(color, 0.3)
+          indicatorSVG = `<circle cx="${x}" cy="${y}" r="${dotRadius}" fill="${color}" style="filter: drop-shadow(0 0 12px ${glow1}) drop-shadow(0 0 24px ${glow2});" />`
+        } else {
+          indicatorSVG = `<circle cx="${x}" cy="${y}" r="${dotRadius}" fill="${color}" />`
+        }
+        break
+    }
+
     items.push(`
-      <circle cx="${x}" cy="${y}" r="${dotRadius}" fill="${color}" />
+      ${indicatorSVG}
       <text
         x="${x + dotRadius + dotLabelGap}"
         y="${y}"

@@ -10,6 +10,7 @@ export const GAP_SIZE = 4 // Stroke width for gaps
 export const CORNER_RADIUS = 8 // Rounded corner radius
 export const START_ANGLE_DEG = -90 // 12 o'clock position
 export const LABEL_HIDE_THRESHOLD_DEG = 20
+export const EXTERNAL_LABEL_THRESHOLD_DEG = 20  // Labels go outside for slices smaller than this
 export const MAX_INNER_RADIUS_PERCENT = 80
 
 // Calculate actual inner radius from percentage
@@ -182,7 +183,8 @@ export function generateSegmentPath(
   sweepAngle: number,
   isOnlySegment: boolean,
   innerRadius: number = 0,
-  gapWidth: number = 0
+  gapWidth: number = 0,
+  cornerRadius: number = CORNER_RADIUS
 ): string {
   // If only one non-zero segment, render as full circle or annulus (no gaps needed)
   if (isOnlySegment) {
@@ -217,12 +219,12 @@ export function generateSegmentPath(
 
   // If gapWidth is specified, use true geometric gaps
   if (gapWidth > 0) {
-    return generateGappedSegmentPath(startAngle, endAngle, sweepAngle, innerRadius, gapWidth)
+    return generateGappedSegmentPath(startAngle, endAngle, sweepAngle, innerRadius, gapWidth, cornerRadius)
   }
 
   // For donut segments (innerRadius > 0) without gaps
   if (innerRadius > 0) {
-    return generateDonutSegmentPath(startAngle, endAngle, sweepAngle, innerRadius)
+    return generateDonutSegmentPath(startAngle, endAngle, sweepAngle, innerRadius, cornerRadius)
   }
 
   // Original solid pie wedge logic below (stroke-based gaps)
@@ -242,7 +244,7 @@ export function generateSegmentPath(
   }
 
   // Calculate corner radius - scale down for smaller segments
-  const effectiveCornerRadius = Math.min(CORNER_RADIUS, sweepAngle * 0.8)
+  const effectiveCornerRadius = Math.min(cornerRadius, sweepAngle * 0.8)
 
   // Convert corner radius to angle offset on the outer arc
   const cornerAngleOffset = (effectiveCornerRadius / OUTER_RADIUS) * (180 / Math.PI)
@@ -278,7 +280,8 @@ function generateDonutSegmentPath(
   startAngle: number,
   endAngle: number,
   sweepAngle: number,
-  innerRadius: number
+  innerRadius: number,
+  cornerRadius: number = CORNER_RADIUS
 ): string {
   const largeArcFlag = sweepAngle > 180 ? 1 : 0
 
@@ -302,7 +305,7 @@ function generateDonutSegmentPath(
   }
 
   // For larger segments, add rounded corners on outer edge
-  const effectiveCornerRadius = Math.min(CORNER_RADIUS, sweepAngle * 0.8)
+  const effectiveCornerRadius = Math.min(cornerRadius, sweepAngle * 0.8)
   const cornerAngleOffset = (effectiveCornerRadius / OUTER_RADIUS) * (180 / Math.PI)
 
   const startArcPoint = polarToCartesian(CENTER_X, CENTER_Y, OUTER_RADIUS, startAngle + cornerAngleOffset)
@@ -331,7 +334,8 @@ export function generateGappedSegmentPath(
   endAngle: number,
   sweepAngle: number,
   innerRadius: number,
-  gapWidth: number
+  gapWidth: number,
+  cornerRadius: number = CORNER_RADIUS
 ): string {
   const halfGap = gapWidth / 2
 
@@ -368,19 +372,25 @@ export function generateGappedSegmentPath(
   const outerLargeArcFlag = sweepAngle > 180 ? 1 : 0
   const innerLargeArcFlag = sweepAngle > 180 ? 1 : 0
 
-  // Check if segment is large enough for rounded corners
-  if (sweepAngle >= 15) {
+  // Always apply rounded corners if cornerRadius > 0, scaling for small segments
+  if (cornerRadius > 0) {
+    // Scale corner radius for small segments to avoid visual issues
+    const scaledCornerRadius = sweepAngle < 15
+      ? cornerRadius * (sweepAngle / 15)
+      : cornerRadius
+
     return generateGappedSegmentWithCorners(
       startAngle, endAngle,
       startEdge, endEdge,
       startOuter, endOuter,
       startInner, endInner,
       effectiveInnerRadius,
-      sweepAngle
+      sweepAngle,
+      scaledCornerRadius
     )
   }
 
-  // Simple gapped path without rounded corners
+  // Simple gapped path without rounded corners (only when cornerRadius is 0)
   return [
     `M ${startInner.x} ${startInner.y}`,
     `L ${startOuter.x} ${startOuter.y}`,
@@ -402,12 +412,13 @@ function generateGappedSegmentWithCorners(
   startInner: { x: number; y: number },
   endInner: { x: number; y: number },
   innerRadius: number,
-  sweepAngle: number
+  sweepAngle: number,
+  cornerRadius: number = CORNER_RADIUS
 ): string {
   // D3 constraint: corner radius cannot exceed half the ring thickness
   const maxCornerRadius = (OUTER_RADIUS - innerRadius) / 2
   // Use consistent corner radius across all slices (don't scale by sweep angle)
-  const baseCornerRadius = Math.min(CORNER_RADIUS, maxCornerRadius)
+  const baseCornerRadius = Math.min(cornerRadius, maxCornerRadius)
 
   // Calculate direction vectors for the radial edges
   const startEdgeDx = startOuter.x - startInner.x
@@ -487,10 +498,40 @@ export function getLabelPosition(
 
 // Determine if label should be shown
 export function shouldShowLabel(sweepAngle: number): boolean {
-  return sweepAngle >= LABEL_HIDE_THRESHOLD_DEG
+  return sweepAngle > 0  // Show all non-zero segments (small ones go external)
 }
 
 // Get font size based on arc size
 export function getLabelFontSize(sweepAngle: number): number {
   return sweepAngle < 30 ? 16 : 18
+}
+
+// Determine if label should be positioned outside the slice
+export function shouldLabelBeExternal(sweepAngle: number): boolean {
+  return sweepAngle < EXTERNAL_LABEL_THRESHOLD_DEG
+}
+
+// Calculate external label position (outside the pie, above the slice)
+export function getExternalLabelPosition(midAngle: number): { x: number; y: number; textAnchor: 'start' | 'middle' | 'end' } {
+  const EXTERNAL_RADIUS = OUTER_RADIUS + 25  // Position outside the pie
+  const pos = polarToCartesian(CENTER_X, CENTER_Y, EXTERNAL_RADIUS, midAngle)
+
+  // Determine text anchor based on position to prevent cropping at edges
+  // Left side: text extends right (start), Right side: text extends left (end)
+  // Top/bottom: centered (middle)
+  const normalizedAngle = ((midAngle % 360) + 360) % 360
+  let textAnchor: 'start' | 'middle' | 'end'
+
+  if (normalizedAngle > 120 && normalizedAngle < 240) {
+    // Left side of chart - anchor start so text extends right
+    textAnchor = 'end'
+  } else if (normalizedAngle < 60 || normalizedAngle > 300) {
+    // Right side of chart - anchor end so text extends left
+    textAnchor = 'start'
+  } else {
+    // Top or bottom - center is fine
+    textAnchor = 'middle'
+  }
+
+  return { ...pos, textAnchor }
 }

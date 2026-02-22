@@ -14,8 +14,9 @@ export const LAYOUT = {
   TITLE_COLOR: '#111827',
 
   // Gaps
-  CHART_LEGEND_GAP_RIGHT: 48,
+  CHART_LEGEND_GAP_SIDE: 48,
   CHART_LEGEND_GAP_BOTTOM: 32,
+  SIDE_EXTRA_PADDING: 24, // Extra padding from edge for left/right layouts
 
   // Legend
   LEGEND_ITEM_HEIGHT: 32,
@@ -54,21 +55,33 @@ export function calculateCanvasDimensions(
   const chartSize = LAYOUT.CHART_SIZE
   const padding = LAYOUT.CANVAS_PADDING
 
-  if (legendPosition === 'right') {
-    // Right layout: [padding][chart][gap][legend][padding]
+  if (legendPosition === 'right' || legendPosition === 'left') {
+    // Side layout: [sidePadding][legend?][gap][chart][gap][legend?][sidePadding]
     const legendTotalHeight = segmentCount * LAYOUT.LEGEND_ITEM_HEIGHT
-    const contentWidth = chartSize + LAYOUT.CHART_LEGEND_GAP_RIGHT + LAYOUT.LEGEND_RIGHT_WIDTH
+    const sidePadding = padding + LAYOUT.SIDE_EXTRA_PADDING
+    const contentWidth = chartSize + LAYOUT.CHART_LEGEND_GAP_SIDE + LAYOUT.LEGEND_RIGHT_WIDTH
     const contentHeight = Math.max(chartSize, legendTotalHeight)
 
-    const width = padding + contentWidth + padding
+    const width = sidePadding + contentWidth + sidePadding
     const height = titleSpace + padding + contentHeight + padding
 
     // Center content area vertically (below title if present)
     const contentAreaTop = titleSpace + padding
-    const chartX = padding
-    const chartY = contentAreaTop + (contentHeight - chartSize) / 2
 
-    const legendX = padding + chartSize + LAYOUT.CHART_LEGEND_GAP_RIGHT
+    let chartX: number
+    let legendX: number
+
+    if (legendPosition === 'right') {
+      // Chart on left, legend on right
+      chartX = sidePadding
+      legendX = sidePadding + chartSize + LAYOUT.CHART_LEGEND_GAP_SIDE
+    } else {
+      // Legend on left, chart on right
+      legendX = sidePadding
+      chartX = sidePadding + LAYOUT.LEGEND_RIGHT_WIDTH + LAYOUT.CHART_LEGEND_GAP_SIDE
+    }
+
+    const chartY = contentAreaTop + (contentHeight - chartSize) / 2
     const legendY = contentAreaTop + (contentHeight - legendTotalHeight) / 2
 
     return {
@@ -113,7 +126,7 @@ export function getLegendColumnCount(
   segmentCount: number,
   legendPosition: LegendPosition
 ): number {
-  if (legendPosition === 'right') return 1
+  if (legendPosition === 'right' || legendPosition === 'left') return 1
   // 1-2 items: single row, 3+ items: 2 columns to allow wrapping
   return segmentCount <= 2 ? segmentCount : segmentCount <= 8 ? 2 : 3
 }

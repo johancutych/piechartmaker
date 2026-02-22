@@ -8,6 +8,7 @@ interface StoreState {
   segments: Segment[]
   title: string
   palette: string
+  style: string
   labelMode: LabelMode
   legendPosition: LegendPosition
   backgroundColor: string
@@ -22,6 +23,7 @@ interface StoreState {
   reorderSegments: (fromIndex: number, toIndex: number) => void
   setTitle: (title: string) => void
   setPalette: (paletteId: string) => void
+  setStyle: (styleId: string) => void
   setLabelMode: (mode: LabelMode) => void
   setLegendPosition: (position: LegendPosition) => void
   setBackgroundColor: (color: string) => void
@@ -41,6 +43,7 @@ const DEFAULT_STATE = {
   segments: DEFAULT_SEGMENTS,
   title: '',
   palette: 'modern',
+  style: 'modern',
   labelMode: 'percentage' as LabelMode,
   legendPosition: 'bottom' as LegendPosition,
   backgroundColor: '#ffffff',
@@ -134,6 +137,10 @@ export const useStore = create<StoreState>()(
         })
       },
 
+      setStyle: (styleId) => {
+        set({ style: styleId })
+      },
+
       setLabelMode: (mode) => {
         set({ labelMode: mode })
       },
@@ -170,6 +177,7 @@ export const useStore = create<StoreState>()(
           ],
           title: '',
           palette: 'modern',
+          style: 'modern',
           labelMode: 'percentage',
           legendPosition: 'bottom',
           backgroundColor: '#ffffff',
@@ -190,6 +198,7 @@ export const useStore = create<StoreState>()(
         segments: state.segments,
         title: state.title,
         palette: state.palette,
+        style: state.style,
         labelMode: state.labelMode,
         legendPosition: state.legendPosition,
         backgroundColor: state.backgroundColor,

@@ -7,6 +7,7 @@ import { calculatePlaceholders } from '../utils/calculations'
 import { SegmentRow } from './SegmentRow'
 import { ChartTitle } from './ChartTitle'
 import { PaletteSelector } from './PaletteSelector'
+import { StyleSelector } from './StyleSelector'
 import { DonutSlider } from './DonutSlider'
 import { GapWidthSlider } from './GapWidthSlider'
 import { ConfirmDialog } from './ConfirmDialog'
@@ -18,6 +19,7 @@ export function SegmentEditor() {
     segments,
     title,
     palette,
+    style,
     legendPosition,
     backgroundColor,
     innerRadiusPercent,
@@ -29,6 +31,7 @@ export function SegmentEditor() {
     reorderSegments,
     setTitle,
     setPalette,
+    setStyle,
     setLegendPosition,
     setBackgroundColor,
     setInnerRadiusPercent,
@@ -156,9 +159,71 @@ export function SegmentEditor() {
       <PaletteSelector
         selectedPaletteId={palette}
         onSelect={handlePaletteSelect}
-        backgroundColor={backgroundColor}
-        onBackgroundColorChange={setBackgroundColor}
       />
+
+      {/* Style selector and Background color */}
+      <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
+        <StyleSelector
+          selectedStyleId={style}
+          onSelect={setStyle}
+        />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <label
+            style={{
+              display: 'block',
+              fontSize: '13px',
+              fontWeight: 600,
+              color: 'var(--text-secondary)',
+              marginBottom: '6px',
+            }}
+          >
+            Background
+          </label>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              onClick={() => setBackgroundColor('transparent')}
+              title="Transparent"
+              style={{
+                width: '40px',
+                height: '40px',
+                padding: 0,
+                border: backgroundColor === 'transparent' ? '3px solid var(--primary)' : '2px solid var(--border)',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                background: 'repeating-conic-gradient(#ccc 0% 25%, #fff 0% 50%) 50% / 12px 12px',
+              }}
+            />
+            <label
+              title="Color"
+              style={{
+                position: 'relative',
+                width: '40px',
+                height: '40px',
+                padding: 0,
+                border: backgroundColor !== 'transparent' ? '3px solid var(--primary)' : '2px solid var(--border)',
+                borderRadius: '8px',
+                backgroundColor: backgroundColor !== 'transparent' ? backgroundColor : '#ffffff',
+                cursor: 'pointer',
+                display: 'block',
+              }}
+            >
+              <input
+                type="color"
+                value={backgroundColor !== 'transparent' ? backgroundColor : '#ffffff'}
+                onChange={(e) => setBackgroundColor(e.target.value)}
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  width: '100%',
+                  height: '100%',
+                  opacity: 0,
+                  cursor: 'pointer',
+                }}
+              />
+            </label>
+          </div>
+        </div>
+      </div>
 
       {/* Donut hole size and Gap width sliders */}
       <div style={{ display: 'flex', gap: '16px', marginBottom: '24px' }}>
@@ -191,6 +256,13 @@ export function SegmentEditor() {
             gap: '8px',
           }}
         >
+          <button
+            className={legendPosition === 'left' ? 'primary' : 'secondary'}
+            onClick={() => setLegendPosition('left')}
+            style={{ flex: 1 }}
+          >
+            Left
+          </button>
           <button
             className={legendPosition === 'bottom' ? 'primary' : 'secondary'}
             onClick={() => setLegendPosition('bottom')}
