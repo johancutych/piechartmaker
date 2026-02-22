@@ -150,8 +150,11 @@ export function CanvasPreview({
             style={{
               position: 'absolute',
               left: dimensions.legendX,
-              top: dimensions.legendY,
+              top: legendPosition === 'right' ? dimensions.chartY : dimensions.legendY,
               width: legendPosition === 'bottom' ? dimensions.width : LAYOUT.LEGEND_RIGHT_WIDTH,
+              height: legendPosition === 'right' ? LAYOUT.CHART_SIZE : undefined,
+              display: legendPosition === 'right' ? 'flex' : undefined,
+              alignItems: legendPosition === 'right' ? 'center' : undefined,
             }}
           >
             <LegendCanvas

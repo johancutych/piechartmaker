@@ -1,6 +1,6 @@
 import type { Segment, LegendPosition } from '../types'
 import { getPaletteColor } from '../data/palettes'
-import { LAYOUT, getLegendColumnCount } from '../utils/canvasLayout'
+import { LAYOUT } from '../utils/canvasLayout'
 
 interface LegendCanvasProps {
   segments: Segment[]
@@ -24,38 +24,28 @@ export function LegendCanvas({
   }
 
   const isRightPosition = legendPosition === 'right'
-  const columnCount = getLegendColumnCount(segments.length, legendPosition)
-  const itemWidth = canvasWidth / columnCount
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: isRightPosition ? 'column' : 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'center',
+        alignItems: isRightPosition ? 'flex-start' : 'center',
+        gap: isRightPosition ? '8px' : '12px 24px',
+        width: '100%',
+      }}
+    >
       {segments.map((segment, index) => {
         const color = getSegmentColor(segment, index)
         const isHovered = hoveredSegmentId === segment.id
         const isDimmed = hoveredSegmentId !== null && !isHovered
 
-        let x: number
-        let y: number
-
-        if (isRightPosition) {
-          // Vertical single-column layout for right position
-          x = 0
-          y = index * LAYOUT.LEGEND_ITEM_HEIGHT
-        } else {
-          // Horizontal grid layout for bottom position
-          const col = index % columnCount
-          const row = Math.floor(index / columnCount)
-          x = col * itemWidth + itemWidth / 2 - 60
-          y = row * LAYOUT.LEGEND_ITEM_HEIGHT
-        }
-
         return (
           <div
             key={segment.id}
             style={{
-              position: 'absolute',
-              left: x,
-              top: y,
               display: 'flex',
               alignItems: 'center',
               gap: `${LAYOUT.LEGEND_DOT_LABEL_GAP - LAYOUT.LEGEND_DOT_RADIUS}px`,
@@ -80,7 +70,9 @@ export function LegendCanvas({
                 fontSize: LAYOUT.LEGEND_FONT_SIZE,
                 fontWeight: LAYOUT.LEGEND_FONT_WEIGHT,
                 color: LAYOUT.LEGEND_TEXT_COLOR,
-                whiteSpace: 'nowrap',
+                whiteSpace: isRightPosition ? 'normal' : 'nowrap',
+                wordBreak: isRightPosition ? 'break-word' : undefined,
+                maxWidth: isRightPosition ? LAYOUT.LEGEND_RIGHT_WIDTH - 30 : undefined,
               }}
             >
               {segment.label}

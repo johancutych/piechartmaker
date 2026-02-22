@@ -32,7 +32,7 @@ export function Legend({
       style={{
         display: 'grid',
         gridTemplateColumns: `repeat(${columnCount}, auto)`,
-        gap: isRightPosition ? '8px 24px' : '12px 24px',
+        gap: isRightPosition ? '12px 24px' : '16px 32px',
         justifyContent: isRightPosition ? 'flex-start' : 'center',
       }}
     >
@@ -48,7 +48,7 @@ export function Legend({
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '8px',
+              gap: '10px',
               cursor: onSegmentHover ? 'pointer' : 'default',
               opacity: isDimmed ? 0.6 : 1,
               transition: 'opacity 0.2s ease',
@@ -59,8 +59,8 @@ export function Legend({
             <span
               className="legend-dot"
               style={{
-                width: '12px',
-                height: '12px',
+                width: '16px',
+                height: '16px',
                 borderRadius: '50%',
                 backgroundColor: color,
                 flexShrink: 0,
@@ -69,8 +69,8 @@ export function Legend({
             <span
               className="legend-label"
               style={{
-                fontSize: '16px',
-                fontWeight: 400,
+                fontSize: '20px',
+                fontWeight: 600,
                 color: '#374151',
                 whiteSpace: 'nowrap',
               }}
@@ -112,9 +112,9 @@ export function renderLegendSVG({
     : segments.length <= 3 ? 1 : segments.length <= 8 ? 2 : 3
   const itemsPerColumn = Math.ceil(segments.length / columnCount)
   const columnWidth = width / columnCount
-  const rowHeight = 28
-  const dotRadius = 6
-  const dotLabelGap = 10
+  const rowHeight = 36
+  const dotRadius = 8
+  const dotLabelGap = 12
 
   const items: string[] = []
 
@@ -127,10 +127,13 @@ export function renderLegendSVG({
       x = startX
       y = startY + index * rowHeight
     } else {
-      // Horizontal grid layout for bottom position
+      // Horizontal grid layout for bottom position - more compact centering
       const columnIndex = Math.floor(index / itemsPerColumn)
       const rowIndex = index % itemsPerColumn
-      const columnStartX = (width - columnCount * columnWidth) / 2 + columnIndex * columnWidth + columnWidth / 4
+      const compactWidth = width * 0.6 // Use 60% of width for tighter grouping
+      const compactColumnWidth = compactWidth / columnCount
+      const startOffset = (width - compactWidth) / 2
+      const columnStartX = startOffset + columnIndex * compactColumnWidth + compactColumnWidth / 4
       x = columnStartX
       y = startY + rowIndex * rowHeight
     }
@@ -141,8 +144,8 @@ export function renderLegendSVG({
         x="${x + dotRadius + dotLabelGap}"
         y="${y}"
         font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
-        font-size="16"
-        font-weight="400"
+        font-size="20"
+        font-weight="600"
         fill="#374151"
         dominant-baseline="central"
       >${escapeXml(segment.label)}</text>

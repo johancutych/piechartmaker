@@ -18,13 +18,13 @@ export const LAYOUT = {
   CHART_LEGEND_GAP_BOTTOM: 32,
 
   // Legend
-  LEGEND_ITEM_HEIGHT: 24,
-  LEGEND_DOT_RADIUS: 5,
-  LEGEND_DOT_LABEL_GAP: 13,
-  LEGEND_FONT_SIZE: 13,
-  LEGEND_FONT_WEIGHT: 400,
+  LEGEND_ITEM_HEIGHT: 32,
+  LEGEND_DOT_RADIUS: 8,
+  LEGEND_DOT_LABEL_GAP: 16,
+  LEGEND_FONT_SIZE: 18,
+  LEGEND_FONT_WEIGHT: 600,
   LEGEND_TEXT_COLOR: '#374151',
-  LEGEND_RIGHT_WIDTH: 150,
+  LEGEND_RIGHT_WIDTH: 250,
 
   // Padding
   CANVAS_PADDING: 32,
@@ -114,5 +114,6 @@ export function getLegendColumnCount(
   legendPosition: LegendPosition
 ): number {
   if (legendPosition === 'right') return 1
-  return segmentCount <= 3 ? segmentCount : segmentCount <= 8 ? 2 : 3
+  // 1-2 items: single row, 3+ items: 2 columns to allow wrapping
+  return segmentCount <= 2 ? segmentCount : segmentCount <= 8 ? 2 : 3
 }
