@@ -111,19 +111,21 @@ export function CanvasPreview({
             <div
               style={{
                 position: 'absolute',
-                left: 0,
-                right: 0,
+                left: LAYOUT.CANVAS_PADDING,
+                right: LAYOUT.CANVAS_PADDING,
                 top: 32,
-                height: LAYOUT.TITLE_HEIGHT,
+                minHeight: LAYOUT.TITLE_HEIGHT,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 fontSize: LAYOUT.TITLE_FONT_SIZE,
                 fontWeight: style.title.fontWeight,
                 color: textColor,
-                whiteSpace: 'nowrap',
                 fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
                 textShadow: style.title.shadow ?? 'none',
+                textAlign: 'center',
+                lineHeight: 1.3,
+                wordBreak: 'break-word',
               }}
             >
               {title}

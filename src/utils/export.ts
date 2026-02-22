@@ -13,7 +13,7 @@ import {
   shouldLabelBeExternal,
   getExternalLabelPosition,
 } from './geometry'
-import { calculateCanvasDimensions, LAYOUT, getLegendColumnCount } from './canvasLayout'
+import { calculateCanvasDimensions, LAYOUT } from './canvasLayout'
 
 // Font data will be loaded dynamically
 let fontDataCache: {
@@ -99,6 +99,39 @@ function escapeXml(str: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;')
+}
+
+// Wrap text into multiple lines based on max width
+function wrapText(text: string, maxWidth: number, fontSize: number): string[] {
+  // Approximate character width (Inter font at given size)
+  const avgCharWidth = fontSize * 0.55
+  const maxCharsPerLine = Math.floor(maxWidth / avgCharWidth)
+
+  if (text.length <= maxCharsPerLine) {
+    return [text]
+  }
+
+  const words = text.split(' ')
+  const lines: string[] = []
+  let currentLine = ''
+
+  for (const word of words) {
+    const testLine = currentLine ? `${currentLine} ${word}` : word
+    if (testLine.length <= maxCharsPerLine) {
+      currentLine = testLine
+    } else {
+      if (currentLine) {
+        lines.push(currentLine)
+      }
+      currentLine = word
+    }
+  }
+
+  if (currentLine) {
+    lines.push(currentLine)
+  }
+
+  return lines
 }
 
 function generateExportSVG(
@@ -331,6 +364,11 @@ function generateExportSVG(
     }
   }
 
+  // Gap between legend items (matches preview CSS gap)
+  const legendRowGap = 12
+  const legendColGap = 24
+  const legendItemGap = LAYOUT.LEGEND_DOT_LABEL_GAP - indicatorRadius
+
   let legendSvg: string
   if (isSidePosition) {
     // Vertical single-column layout for left/right position
@@ -343,7 +381,7 @@ function generateExportSVG(
         return `
           ${generateIndicator(x, y, color)}
           <text
-            x="${x + indicatorRadius + LAYOUT.LEGEND_DOT_LABEL_GAP - LAYOUT.LEGEND_DOT_RADIUS}"
+            x="${x + indicatorSize + legendItemGap}"
             y="${y + indicatorRadius}"
             font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
             font-size="${LAYOUT.LEGEND_FONT_SIZE}"
@@ -355,40 +393,80 @@ function generateExportSVG(
       })
       .join('')
   } else {
-    // Horizontal grid layout for bottom position
-    const columnCount = getLegendColumnCount(segments.length, legendPosition)
-    const itemWidth = totalWidth / columnCount
-    legendSvg = segments
-      .map((segment, index) => {
-        const color = getSegmentColor(segment, index)
-        const col = index % columnCount
-        const row = Math.floor(index / columnCount)
-        const x = col * itemWidth + itemWidth / 2 - 60
-        const y = legendStartY + row * LAYOUT.LEGEND_ITEM_HEIGHT
+    // Horizontal centered layout for bottom position (matches flexbox preview)
+    // Estimate item widths to determine how many fit per row
+    const avgCharWidth = LAYOUT.LEGEND_FONT_SIZE * 0.55
+    const itemWidths = segments.map(s => indicatorSize + legendItemGap + s.label.length * avgCharWidth)
 
-        return `
-          ${generateIndicator(x, y, color)}
-          <text
-            x="${x + indicatorRadius + LAYOUT.LEGEND_DOT_LABEL_GAP - LAYOUT.LEGEND_DOT_RADIUS}"
-            y="${y + indicatorRadius}"
-            font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
-            font-size="${LAYOUT.LEGEND_FONT_SIZE}"
-            font-weight="${LAYOUT.LEGEND_FONT_WEIGHT}"
-            fill="${legendTextColor}"
-            dominant-baseline="central"
-          >${escapeXml(segment.label)}</text>
-        `
+    // Calculate how items flow into rows (like flexbox wrap)
+    const maxRowWidth = totalWidth - LAYOUT.CANVAS_PADDING * 2
+    const rows: number[][] = []
+    let currentRow: number[] = []
+    let currentRowWidth = 0
+
+    for (let i = 0; i < segments.length; i++) {
+      const itemWidth = itemWidths[i] ?? 0
+      const widthWithGap = currentRow.length > 0 ? itemWidth + legendColGap : itemWidth
+
+      if (currentRowWidth + widthWithGap <= maxRowWidth || currentRow.length === 0) {
+        currentRow.push(i)
+        currentRowWidth += widthWithGap
+      } else {
+        rows.push(currentRow)
+        currentRow = [i]
+        currentRowWidth = itemWidth
+      }
+    }
+    if (currentRow.length > 0) {
+      rows.push(currentRow)
+    }
+
+    legendSvg = rows
+      .map((rowIndices, rowIndex) => {
+        // Calculate total width of this row
+        const rowItemWidths = rowIndices.map(i => itemWidths[i] ?? 0)
+        const rowTotalWidth = rowItemWidths.reduce((a, b) => a + b, 0) + (rowIndices.length - 1) * legendColGap
+
+        // Start X to center the row
+        let currentX = (totalWidth - rowTotalWidth) / 2
+        const y = legendStartY + rowIndex * (LAYOUT.LEGEND_ITEM_HEIGHT + legendRowGap)
+
+        return rowIndices.map((segmentIndex) => {
+          const segment = segments[segmentIndex]
+          if (!segment) return ''
+          const color = getSegmentColor(segment, segmentIndex)
+          const x = currentX
+          currentX += (itemWidths[segmentIndex] ?? 0) + legendColGap
+
+          return `
+            ${generateIndicator(x, y, color)}
+            <text
+              x="${x + indicatorSize + legendItemGap}"
+              y="${y + indicatorRadius}"
+              font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+              font-size="${LAYOUT.LEGEND_FONT_SIZE}"
+              font-weight="${LAYOUT.LEGEND_FONT_WEIGHT}"
+              fill="${legendTextColor}"
+              dominant-baseline="central"
+            >${escapeXml(segment.label)}</text>
+          `
+        }).join('')
       })
       .join('')
   }
 
-  // Generate title using shared constants with style
+  // Generate title using text with tspan elements for line wrapping
   const titleStyleAttr = style.title.shadow ? `style="text-shadow: ${style.title.shadow}"` : ''
+  const maxTitleWidth = dims.width - LAYOUT.CANVAS_PADDING * 2
+  const titleLines = title ? wrapText(title, maxTitleWidth, LAYOUT.TITLE_FONT_SIZE) : []
+  const lineHeight = LAYOUT.TITLE_FONT_SIZE * 1.3
+  const titleStartY = 32 + LAYOUT.TITLE_HEIGHT / 2 - ((titleLines.length - 1) * lineHeight) / 2
+
   const titleSvg = title
     ? `
       <text
         x="${dims.titleX}"
-        y="${dims.titleY}"
+        y="${titleStartY}"
         text-anchor="middle"
         dominant-baseline="central"
         font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
@@ -396,7 +474,9 @@ function generateExportSVG(
         font-weight="${style.title.fontWeight}"
         fill="${textColor}"
         ${titleStyleAttr}
-      >${escapeXml(title)}</text>
+      >${titleLines.map((line, i) =>
+        `<tspan x="${dims.titleX}" dy="${i === 0 ? 0 : lineHeight}">${escapeXml(line)}</tspan>`
+      ).join('')}</text>
     `
     : ''
 
