@@ -9,7 +9,8 @@ interface EmbedModalProps {
   onClose: () => void
 }
 
-const BASE_URL = 'https://chartty.io'
+const SITE_URL = 'https://chartty.io'
+const APP_URL = 'https://piechartmaker-rust.vercel.app'
 
 export function EmbedModal({ isOpen, onClose }: EmbedModalProps) {
   const { segments, title, palette, style, labelMode, legendPosition, backgroundColor, innerRadiusPercent, gapWidthPercent } = useStore()
@@ -32,10 +33,10 @@ export function EmbedModal({ isOpen, onClose }: EmbedModalProps) {
     gapWidthPercent,
   })
 
-  const embedUrl = `${BASE_URL}/embed?d=${encoded}`
-  const shareUrl = `${BASE_URL}/view?d=${encoded}`
+  const embedUrl = `${APP_URL}/embed?d=${encoded}`
+  const shareUrl = `${APP_URL}/view?d=${encoded}`
 
-  const embedCode = `<iframe src="${embedUrl}" width="${width}" height="${height}" frameborder="0" style="border:none;border-radius:8px;"></iframe>\n<p style="font-size:12px;color:#666;margin-top:4px;"><a href="${BASE_URL}" target="_blank" rel="noopener">Made with Chartty</a></p>`
+  const embedCode = `<iframe src="${embedUrl}" width="${width}" height="${height}" frameborder="0" style="border:none;border-radius:8px;"></iframe>\n<p style="font-size:12px;color:#666;margin-top:4px;"><a href="${SITE_URL}" target="_blank" rel="noopener">Made with Chartty</a></p>`
 
   const copyToClipboard = async (text: string, type: 'embed' | 'link') => {
     try {
