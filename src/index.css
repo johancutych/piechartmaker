@@ -83,10 +83,15 @@ body {
   align-items: center;
   justify-content: flex-end;
   gap: 12px;
-  padding: 16px 24px;
-  background: var(--surface);
-  border-bottom: 2px solid var(--border);
+  padding: 6px 20px;
+  background: transparent;
+  border-bottom: none;
   flex-shrink: 0;
+}
+
+.toolbar button {
+  font-size: 13px;
+  padding: 7px 14px;
 }
 
 .chart-wrapper {
