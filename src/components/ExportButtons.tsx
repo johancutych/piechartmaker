@@ -1,10 +1,14 @@
 import { useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faDownload, faSpinner } from '@fortawesome/free-solid-svg-icons'
+import { faDownload, faSpinner, faCode } from '@fortawesome/free-solid-svg-icons'
 import { useStore } from '../store'
 import { exportChart, type ExportFormat } from '../utils/export'
 
-export function ExportButtons() {
+interface ExportButtonsProps {
+  onEmbedClick?: () => void
+}
+
+export function ExportButtons({ onEmbedClick }: ExportButtonsProps) {
   const { segments, title, palette, style, inputMode, legendPosition, backgroundColor, innerRadiusPercent, gapWidthPercent } = useStore()
   const [exporting, setExporting] = useState<ExportFormat | null>(null)
 
@@ -30,7 +34,7 @@ export function ExportButtons() {
   }
 
   return (
-    <div style={{ display: 'flex', gap: '8px' }}>
+    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
       <button
         className="primary"
         onClick={() => handleExport('png')}
@@ -67,6 +71,20 @@ export function ExportButtons() {
         />
         SVG
       </button>
+      {onEmbedClick && (
+        <>
+          <button
+            className="secondary"
+            onClick={onEmbedClick}
+          >
+            <FontAwesomeIcon
+              icon={faCode}
+              style={{ fontSize: '12px', marginRight: '6px' }}
+            />
+            Embed
+          </button>
+        </>
+      )}
     </div>
   )
 }

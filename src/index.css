@@ -90,6 +90,9 @@ body {
 .toolbar button {
   font-size: 13px;
   padding: 7px 14px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
 }
 
 .chart-wrapper {
@@ -272,24 +275,52 @@ input.placeholder-value {
     grid-template-columns: 1fr;
     grid-template-rows: 1fr auto;
     height: 100vh;
+    height: 100dvh;
   }
 
   .sidebar {
     order: 2;
     max-height: 50vh;
+    max-height: 50dvh;
     border-right: none;
     border-top: 1px solid var(--border);
     overflow-y: auto;
+    padding: 16px;
+    -webkit-overflow-scrolling: touch;
   }
 
   .preview {
     order: 1;
+    min-height: 0;
     height: auto;
-    min-height: 300px;
-    padding: 8px;
+    padding: 4px;
+    overflow: hidden;
+  }
+
+  .toolbar {
+    padding: 4px 8px;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .toolbar button {
+    font-size: 12px;
+    padding: 6px 10px;
   }
 
   .chart-wrapper {
-    margin: 8px;
+    margin: 4px;
+  }
+
+  /* Prevent iOS zoom on input focus */
+  input[type="text"],
+  input[type="number"] {
+    font-size: 16px;
+    padding: 8px 10px;
+  }
+
+  button {
+    font-size: 13px;
+    padding: 8px 14px;
   }
 }
