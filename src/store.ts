@@ -49,7 +49,7 @@ const DEFAULT_STATE = {
   backgroundColor: '#ffffff',
   innerRadiusPercent: 0,
   gapWidthPercent: 20,
-  inputMode: 'values' as InputMode,
+  inputMode: 'percentages' as InputMode,
 }
 
 // Debounced localStorage wrapper
@@ -183,7 +183,7 @@ export const useStore = create<StoreState>()(
           backgroundColor: '#ffffff',
           innerRadiusPercent: 0,
           gapWidthPercent: 20,
-          inputMode: 'values',
+          inputMode: 'percentages',
         })
       },
     }),

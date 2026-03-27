@@ -66,16 +66,14 @@ body {
   background: var(--surface);
   border-right: 2px solid var(--border);
   padding: 24px;
-  overflow-y: auto;
-  max-height: 100vh;
+  overflow-y: visible;
 }
 
 .preview {
   display: flex;
   flex-direction: column;
   background: var(--canvas-bg);
-  height: 100vh;
-  overflow: hidden;
+  min-height: 100vh;
 }
 
 .toolbar {
@@ -192,14 +190,14 @@ button.danger:hover {
 /* Input Mode Toggle */
 .input-mode-toggle {
   display: flex;
-  gap: 8px;
+  gap: 4px;
 }
 
 .input-mode-toggle button {
   flex: 1;
-  border-radius: 12px;
-  padding: 10px 12px;
-  font-size: 14px;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;

@@ -64,8 +64,8 @@ export function SegmentRow({
         display: 'flex',
         alignItems: 'center',
         gap: '8px',
-        padding: '8px 0',
-        marginBottom: '4px',
+        padding: '4px 0',
+        marginBottom: '0px',
         cursor: 'grab',
       }}
     >
