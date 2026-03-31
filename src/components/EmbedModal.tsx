@@ -9,8 +9,8 @@ interface EmbedModalProps {
   onClose: () => void
 }
 
-const SITE_URL = 'https://chartty.io'
-const APP_URL = 'https://piechartmaker-rust.vercel.app'
+const SITE_URL = 'https://www.chartty.io'
+const APP_URL = 'https://app.chartty.io'
 
 export function EmbedModal({ isOpen, onClose }: EmbedModalProps) {
   const { segments, title, palette, style, labelMode, legendPosition, backgroundColor, innerRadiusPercent, gapWidthPercent } = useStore()

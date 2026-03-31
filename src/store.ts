@@ -41,7 +41,7 @@ const DEFAULT_SEGMENTS: Segment[] = [
 
 const DEFAULT_STATE = {
   segments: DEFAULT_SEGMENTS,
-  title: '',
+  title: 'Your Title',
   palette: 'modern',
   style: 'modern',
   labelMode: 'percentage' as LabelMode,
@@ -175,7 +175,7 @@ export const useStore = create<StoreState>()(
             { id: nanoid(), label: 'Engineering', value: 35, color: getPaletteColor('modern', 1) },
             { id: nanoid(), label: 'Design', value: 25, color: getPaletteColor('modern', 2) },
           ],
-          title: '',
+          title: 'Your Title',
           palette: 'modern',
           style: 'modern',
           labelMode: 'percentage',

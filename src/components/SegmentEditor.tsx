@@ -144,7 +144,7 @@ export function SegmentEditor() {
 
       {/* Add segment button */}
       <button
-        className="secondary"
+        className="primary"
         onClick={addSegment}
         style={{
           width: '100%',
@@ -250,28 +250,23 @@ export function SegmentEditor() {
         >
           Legend Position
         </label>
-        <div
-          style={{
-            display: 'flex',
-            gap: '8px',
-          }}
-        >
+        <div className="toggle-group">
           <button
-            className={legendPosition === 'left' ? 'primary' : 'secondary'}
+            className={legendPosition === 'left' ? 'active' : ''}
             onClick={() => setLegendPosition('left')}
             style={{ flex: 1 }}
           >
             Left
           </button>
           <button
-            className={legendPosition === 'bottom' ? 'primary' : 'secondary'}
+            className={legendPosition === 'bottom' ? 'active' : ''}
             onClick={() => setLegendPosition('bottom')}
             style={{ flex: 1 }}
           >
             Below
           </button>
           <button
-            className={legendPosition === 'right' ? 'primary' : 'secondary'}
+            className={legendPosition === 'right' ? 'active' : ''}
             onClick={() => setLegendPosition('right')}
             style={{ flex: 1 }}
           >

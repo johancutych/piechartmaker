@@ -212,19 +212,43 @@ button.danger:hover {
 }
 
 .input-mode-toggle button.active {
-  background: var(--primary);
-  color: white;
-  border: 2px solid var(--primary);
-}
-
-.input-mode-toggle button:not(.active) {
-  background: var(--bg);
+  background: #ebe6f5;
   color: var(--primary);
   border: 2px solid var(--primary);
 }
 
+.input-mode-toggle button:not(.active) {
+  background: #f7f5fb;
+  color: #5a4d7a;
+  border: 2px solid #d5cee5;
+}
+
 .input-mode-toggle button:not(.active):hover {
-  background: var(--surface);
+  background: #ebe6f5;
+  border-color: #c4bbd9;
+}
+
+/* Toggle Button Groups (legend position, etc.) */
+.toggle-group {
+  display: flex;
+  gap: 8px;
+}
+
+.toggle-group button.active {
+  background: #ebe6f5;
+  color: var(--primary);
+  border: 2px solid var(--primary);
+}
+
+.toggle-group button:not(.active) {
+  background: #f7f5fb;
+  color: #5a4d7a;
+  border: 2px solid #d5cee5;
+}
+
+.toggle-group button:not(.active):hover {
+  background: #ebe6f5;
+  border-color: #c4bbd9;
 }
 
 /* Total Display */
