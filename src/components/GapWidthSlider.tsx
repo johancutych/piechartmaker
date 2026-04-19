@@ -15,6 +15,7 @@ export function GapWidthSlider({ value, onChange }: GapWidthSliderProps) {
         }}
       >
         <label
+          htmlFor="gap-width-slider"
           style={{
             fontSize: '13px',
             fontWeight: 600,
@@ -33,6 +34,7 @@ export function GapWidthSlider({ value, onChange }: GapWidthSliderProps) {
         </span>
       </div>
       <input
+        id="gap-width-slider"
         type="range"
         min="0"
         max="100"

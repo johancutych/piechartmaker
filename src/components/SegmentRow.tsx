@@ -101,6 +101,8 @@ export function SegmentRow({
         type="color"
         value={displayColor}
         onChange={(e) => onUpdate({ color: e.target.value })}
+        aria-label="Segment color"
+        tabIndex={-1}
         style={{
           position: 'absolute',
           opacity: 0,
@@ -116,6 +118,7 @@ export function SegmentRow({
         value={segment.label}
         onChange={(e) => onUpdate({ label: e.target.value })}
         placeholder="Label"
+        aria-label="Segment label"
         style={{
           flex: 1,
           minWidth: 0,
@@ -138,6 +141,7 @@ export function SegmentRow({
           }}
           min={0}
           placeholder="0"
+          aria-label={inputMode === 'percentages' ? 'Segment value (percent)' : 'Segment value'}
           className={isPlaceholder ? 'placeholder-value' : ''}
           style={{
             width: '100%',

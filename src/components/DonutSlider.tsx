@@ -15,6 +15,7 @@ export function DonutSlider({ value, onChange }: DonutSliderProps) {
         }}
       >
         <label
+          htmlFor="hole-size-slider"
           style={{
             fontSize: '13px',
             fontWeight: 600,
@@ -33,6 +34,7 @@ export function DonutSlider({ value, onChange }: DonutSliderProps) {
         </span>
       </div>
       <input
+        id="hole-size-slider"
         type="range"
         min="0"
         max="80"
